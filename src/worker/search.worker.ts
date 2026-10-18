@@ -6,6 +6,7 @@ import { decodeVectorB64, runScorecard, type EvalItem } from '../core/scorecard'
 import type { RerankFn } from '../core/types';
 import { loadData } from './load-data';
 import type { LoadPhase, Sample, WorkerApi } from './protocol';
+import { loadReranker } from './reranker';
 
 const PHASE_OF_STEP: Record<LoadStep, LoadPhase> = { schema: 'database', rows: 'database', 'keyword-index': 'keyword-index', analyze: 'keyword-index' };
 
@@ -84,5 +85,5 @@ export function createWorkerApi(d: {
 }
 
 if (typeof WorkerGlobalScope !== 'undefined') {
-  Comlink.expose(createWorkerApi({ baseUrl: '/data' }));
+  Comlink.expose(createWorkerApi({ baseUrl: '/data', loadReranker }));
 }
