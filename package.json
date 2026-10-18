@@ -1,0 +1,28 @@
+{
+  "name": "filings-lens",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "ingest": "tsx pipeline/cli/ingest.ts",
+    "search": "tsx pipeline/cli/search.ts",
+    "eval:draft": "tsx pipeline/cli/eval-draft.ts",
+    "eval:finalize": "tsx pipeline/cli/eval-finalize.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.5.10",
+    "stemmer": "^2.0.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite-pgvector": "^0.0.11",
+    "@types/node": "^26.6.5",
+    "cheerio": "^1.2.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}
