@@ -1,0 +1,63 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "@fontsource-variable/inter";
+@import "@fontsource-variable/jetbrains-mono";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+/* Design tokens from the approved mockup (docs/design/layout-a-modern.html). */
+:root {
+  --fl-bg: #f7f7f8; --fl-panel: #ffffff; --fl-panel2: #f4f4f5; --fl-line: #e7e7ea; --fl-line2: #d4d4d8;
+  --fl-text: #18181b; --fl-muted: #6b6b76; --fl-faint: #a1a1aa; --fl-acc: #4f46e5; --fl-acc2: #7c3aed;
+  --fl-hl: rgba(250, 204, 21, .38); --fl-ok: #16a34a; --fl-warn: #d97706;
+  --fl-shadow: 0 1px 2px rgba(16, 24, 40, .05), 0 10px 30px -14px rgba(16, 24, 40, .18);
+  --radius: 0.75rem;
+}
+
+[data-theme=dark] {
+  --fl-bg: #0b0b0e; --fl-panel: #121216; --fl-panel2: #1a1a20; --fl-line: #24242b; --fl-line2: #34343e;
+  --fl-text: #f4f4f5; --fl-muted: #a1a1aa; --fl-faint: #6b6b76; --fl-acc: #8b93ff; --fl-acc2: #b48cff;
+  --fl-hl: rgba(250, 204, 21, .24); --fl-ok: #22c55e; --fl-warn: #fbbf24;
+  --fl-shadow: 0 1px 2px rgba(0, 0, 0, .5), 0 10px 30px -14px rgba(0, 0, 0, .8);
+}
+
+/* shadcn/ui variables mapped onto the tokens. */
+:root, [data-theme=dark] {
+  --background: var(--fl-bg); --foreground: var(--fl-text);
+  --card: var(--fl-panel); --card-foreground: var(--fl-text);
+  --popover: var(--fl-panel); --popover-foreground: var(--fl-text);
+  --primary: var(--fl-acc); --primary-foreground: #ffffff;
+  --secondary: var(--fl-panel2); --secondary-foreground: var(--fl-text);
+  --muted: var(--fl-panel2); --muted-foreground: var(--fl-muted);
+  --accent: color-mix(in srgb, var(--fl-acc) 10%, transparent); --accent-foreground: var(--fl-acc);
+  --destructive: #dc2626;
+  --border: var(--fl-line); --input: var(--fl-line); --ring: var(--fl-acc);
+}
+
+[data-theme=dark] { --primary-foreground: #0b0b0e; --destructive: #f87171; }
+
+@theme inline {
+  --color-background: var(--background); --color-foreground: var(--foreground);
+  --color-card: var(--card); --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover); --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary); --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary); --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted); --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent); --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border); --color-input: var(--input); --color-ring: var(--ring);
+  --color-panel: var(--fl-panel); --color-panel2: var(--fl-panel2); --color-line2: var(--fl-line2); --color-faint: var(--fl-faint);
+  --color-acc2: var(--fl-acc2); --color-hl: var(--fl-hl); --color-ok: var(--fl-ok); --color-warn: var(--fl-warn);
+  --radius-sm: calc(var(--radius) - 6px); --radius-md: calc(var(--radius) - 4px); --radius-lg: var(--radius); --radius-xl: calc(var(--radius) + 4px);
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, monospace;
+  --shadow-panel: var(--fl-shadow);
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  html, body, #root { height: 100%; }
+  body { @apply bg-background text-foreground font-sans antialiased; font-feature-settings: "cv11", "ss01"; }
+}
+
+.num { font-variant-numeric: tabular-nums; font-family: 'JetBrains Mono Variable', ui-monospace, monospace; }
