@@ -91,3 +91,13 @@ test('auth errors are not retried', async () => {
   await expect(embedWithCache(items(1), { apiKey: 'k', cacheDir: dir, embed: f.embed, sleep: s.sleep })).rejects.toMatchObject({ reason: 'auth' });
   expect(s.sleeps).toEqual([]);
 });
+
+test('reports every retry with its reason, wait and message', async () => {
+  const f = fakeEmbed([quota(), new GeminiError(503, 'server', 'unavailable'), 'ok']);
+  const retries: Array<[string, number, string]> = [];
+  await embedWithCache(items(1), {
+    apiKey: 'k', cacheDir: dir, embed: f.embed, sleep: fakeSleep().sleep,
+    onRetry: (reason, waitMs, message) => retries.push([reason, waitMs, message]),
+  });
+  expect(retries).toEqual([['quota', 41000, 'Resource has been exhausted'], ['server', 5000, 'unavailable']]);
+});

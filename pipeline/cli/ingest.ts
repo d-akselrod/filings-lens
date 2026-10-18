@@ -75,6 +75,8 @@ try {
     apiKey: requireEnv('GEMINI_API_KEY'),
     cacheDir: 'data/.cache/embeddings',
     batchSize,
+    onRetry: (reason, waitMs, message) =>
+      console.log(`\n[${new Date().toISOString().slice(11, 19)}] ${reason}: waiting ${Math.round(waitMs / 1000)}s — ${message.slice(0, 300)}`),
     onProgress: (done, total) => process.stdout.write(`\rembedded ${done}/${total}`),
   });
   process.stdout.write('\n');

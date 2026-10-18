@@ -35,6 +35,7 @@ async function writeCached(path: string, v: Float32Array): Promise<void> {
 export async function embedWithCache(items: Array<{ key: string; text: string }>, o: {
   apiKey: string; cacheDir: string; batchSize?: number; embed?: typeof embedBatch;
   sleep?: (ms: number) => Promise<void>; onProgress?: (done: number, total: number) => void; maxConsecutiveQuota?: number;
+  onRetry?: (reason: 'quota' | 'server' | 'network', waitMs: number, message: string) => void;
 }): Promise<Map<string, Float32Array>> {
   const embed = o.embed ?? embedBatch;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
@@ -66,11 +67,15 @@ export async function embedWithCache(items: Array<{ key: string; text: string }>
       if (e instanceof GeminiError && e.reason === 'quota') {
         consecutiveQuota++;
         if (consecutiveQuota >= maxQuota) throw new QuotaExhaustedError();
-        await sleep(Math.min((e.retryAfterMs ?? DEFAULT_QUOTA_DELAY) * 2 ** (consecutiveQuota - 1), MAX_QUOTA_DELAY));
+        const waitMs = Math.min((e.retryAfterMs ?? DEFAULT_QUOTA_DELAY) * 2 ** (consecutiveQuota - 1), MAX_QUOTA_DELAY);
+        o.onRetry?.('quota', waitMs, e.message);
+        await sleep(waitMs);
         continue;
       }
       if (e instanceof GeminiError && (e.reason === 'server' || e.reason === 'network') && serverRetries < SERVER_RETRY_DELAYS.length) {
-        await sleep(SERVER_RETRY_DELAYS[serverRetries++]!);
+        const waitMs = SERVER_RETRY_DELAYS[serverRetries++]!;
+        o.onRetry?.(e.reason, waitMs, e.message);
+        await sleep(waitMs);
         continue;
       }
       throw e;
