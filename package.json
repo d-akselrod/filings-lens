@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",
+    "@upstash/redis": "^1.39.0",
     "stemmer": "^2.0.1"
   },
   "devDependencies": {
