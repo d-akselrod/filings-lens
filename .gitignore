@@ -7,3 +7,4 @@ data/.cache/
 test-results/
 playwright-report/
 .claude/
+.vercel
