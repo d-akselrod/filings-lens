@@ -2,6 +2,7 @@ import { Check, KeyRound, MessageSquareText, RotateCcw, Search, SunMoon } from '
 import { useEffect, useState } from 'react';
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { companyLabel } from '@/lib/companies';
+import { cn } from '@/lib/utils';
 import { useSession } from '@/state/session';
 import { useSettings } from '@/state/settings';
 import { useUi } from '@/state/ui';
@@ -12,7 +13,7 @@ import type { Sample } from '../../worker/protocol';
 const IS_MAC = typeof navigator !== 'undefined' && /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent);
 
 /** The header's search trigger plus the ⌘K / Ctrl+K palette of samples, filters and actions. */
-export function CommandMenu({ facets, samples }: { facets: Facets | null; samples: Sample[] }) {
+export function CommandMenu({ facets, samples, className }: { facets: Facets | null; samples: Sample[]; className?: string }) {
   const [open, setOpen] = useState(false);
   const filters = useSettings(s => s.settings.filters);
   const { toggleFilter, reset } = useSettings.getState();
@@ -37,7 +38,7 @@ export function CommandMenu({ facets, samples }: { facets: Facets | null; sample
   return (
     <>
       <button type="button" onClick={() => setOpen(true)}
-        className="ml-1.5 flex min-w-0 flex-[0_1_220px] items-center gap-1.5 overflow-hidden rounded-lg border bg-panel2 py-1 pr-1.5 pl-2 text-[12px] text-faint hover:text-muted-foreground">
+        className={cn('flex min-w-0 items-center gap-1.5 overflow-hidden rounded-lg border bg-panel2 py-1 pr-1.5 pl-2 text-[12px] text-faint hover:text-muted-foreground', className)}>
         <Search className="size-3.5 shrink-0" aria-hidden />
         <span className="truncate">Search companies, sections…</span>
         <kbd className="ml-auto hidden rounded-[5px] border border-b-2 border-line2 bg-card px-1 font-mono text-[10px] text-muted-foreground sm:inline">
