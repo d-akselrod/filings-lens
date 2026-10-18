@@ -88,3 +88,52 @@ export async function generateText(apiKey: string, r: { model: string; system: s
   }, o);
   return answerText((await res.json()) as GenerateResponse);
 }
+
+export const ANSWER_MODELS = { fast: 'gemma-4-26b-a4b-it', deep: 'gemma-4-31b-it' } as const;
+export type ModelChoice = keyof typeof ANSWER_MODELS;
+
+export interface StreamRequest { model: string; system: string; user: string; signal?: AbortSignal }
+
+/** Splits an SSE buffer into complete `data:` events and the unfinished tail. */
+export function parseSseLines(buffer: string): { events: unknown[]; rest: string } {
+  const lines = buffer.split(/\r?\n/);
+  const rest = lines.pop() ?? '';
+  const events: unknown[] = [];
+  for (const line of lines) {
+    if (!line.startsWith('data:')) continue;
+    const payload = line.slice(5).trim();
+    if (payload) events.push(JSON.parse(payload));
+  }
+  return { events, rest };
+}
+
+/** Streams answer text (thought parts removed) from `:streamGenerateContent?alt=sse`. */
+export async function* streamGenerate(apiKey: string, r: StreamRequest, o?: { fetch?: typeof fetch }): AsyncGenerator<string> {
+  const res = await post(`${GEMINI_BASE}/models/${r.model}:streamGenerateContent?alt=sse`, apiKey, {
+    systemInstruction: { parts: [{ text: r.system }] },
+    contents: [{ role: 'user', parts: [{ text: r.user }] }],
+  }, { fetch: o?.fetch, signal: r.signal });
+  if (!res.body) throw new GeminiError(502, 'server', 'empty streaming response');
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  for (;;) {
+    let chunk: ReadableStreamReadResult<Uint8Array>;
+    try {
+      chunk = await reader.read();
+    } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') throw e;
+      throw new GeminiError(0, 'network', e instanceof Error ? e.message : String(e));
+    }
+    buffer += decoder.decode(chunk.value, { stream: !chunk.done });
+    const { events, rest } = parseSseLines(chunk.done ? `${buffer}\n` : buffer);
+    buffer = rest;
+    for (const event of events) {
+      const error = (event as { error?: { code?: number; message?: string } }).error;
+      if (error) throw new GeminiError(error.code ?? 500, error.code === 429 ? 'quota' : 'server', error.message ?? 'stream error');
+      const text = answerText(event as GenerateResponse);
+      if (text) yield text;
+    }
+    if (chunk.done) return;
+  }
+}
