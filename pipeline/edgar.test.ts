@@ -77,6 +77,33 @@ test('uncached requests are spaced at least minIntervalMs apart, even when concu
   expect(starts[2]! - starts[1]!).toBeGreaterThanOrEqual(45);
 });
 
+test('latestTenKs pages into older submission files only when recent filings are not enough', async () => {
+  const columns = (rows: Array<[acc: string, date: string, report: string, form: string, doc: string]>) => ({
+    accessionNumber: rows.map(r => r[0]), filingDate: rows.map(r => r[1]), reportDate: rows.map(r => r[2]),
+    form: rows.map(r => r[3]), primaryDocument: rows.map(r => r[4]),
+  });
+  const recent = columns([
+    ['0001326801-26-000010', '2026-01-29', '2025-12-31', '10-K', 'meta-20251231.htm'],
+    ['0001326801-26-000500', '2026-04-30', '2026-03-31', '4', 'xslF345X05/wk-form4.xml'],
+    ['0001326801-25-000017', '2025-01-30', '2024-12-31', '10-K', 'meta-20241231.htm'],
+  ]);
+  const page = columns([['0001326801-24-000012', '2024-02-02', '2023-12-31', '10-K', 'meta-20231231.htm']]);
+  const sub = { cik: '1326801', name: 'Meta Platforms, Inc.', filings: { recent, files: [{ name: 'CIK0001326801-submissions-001.json' }] } };
+  const f = recordingFetch(url => JSON.stringify(url.endsWith('submissions-001.json') ? page : sub));
+  const client = new EdgarClient({ userAgent: 'Jane Doe jane@example.com', cacheDir: dir, minIntervalMs: 0, fetch: f.fn });
+  const three = await client.latestTenKs('0001326801', 'META', 3);
+  expect(three.map(r => r.fiscalYear)).toEqual([2025, 2024, 2023]);
+  expect(three[2]!.url).toBe('https://www.sec.gov/Archives/edgar/data/1326801/000132680124000012/meta-20231231.htm');
+  expect(f.calls.map(c => c.url)).toEqual([
+    'https://data.sec.gov/submissions/CIK0001326801.json',
+    'https://data.sec.gov/submissions/CIK0001326801-submissions-001.json',
+  ]);
+  const two = await new EdgarClient({ userAgent: 'Jane Doe jane@example.com', cacheDir: dir, minIntervalMs: 0, fetch: f.fn })
+    .latestTenKs('0001326801', 'META', 2);
+  expect(two).toHaveLength(2);
+  expect(f.calls).toHaveLength(2);
+});
+
 test('client refuses a User-Agent without a contact email and surfaces HTTP errors', async () => {
   expect(() => new EdgarClient({ userAgent: 'Filings Lens', cacheDir: dir })).toThrow(/email/i);
   const f = recordingFetch(() => 'Request Rate Threshold Exceeded', 403);

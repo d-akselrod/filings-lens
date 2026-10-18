@@ -1,13 +1,14 @@
 /**
- * npm run ingest [-- --parse-only]
+ * npm run ingest [-- --parse-only] [--batch 25]
  * EDGAR → 10-K Items → chunks → gemini-embedding-2 → public/data/. Resumable: rerun after a quota stop.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
 import { documentText } from '../../src/core/gemini';
 import type { ChunkRow, CompanyRow, CorpusFile, FilingRow } from '../../src/core/types';
 import { chunkSection } from '../chunk';
 import { COMPANIES } from '../companies';
-import { EdgarClient, latest10Ks } from '../edgar';
+import { EdgarClient } from '../edgar';
 import { embedWithCache, QuotaExhaustedError } from '../embed-runner';
 import { requireEnv } from '../env';
 import { htmlToBlocks } from '../html-blocks';
@@ -15,6 +16,9 @@ import { splitItems } from '../parse10k';
 import { FIRST_VISIT_BUDGET_BYTES, RUNTIME_ALLOWANCE_BYTES, writeDataFiles } from '../write-data';
 
 const parseOnly = process.argv.includes('--parse-only');
+const batchArg = process.argv.indexOf('--batch');
+// Small batches keep each request under free-tier per-minute token limits (a 600-token chunk × 25 ≈ 15K tokens).
+const batchSize = batchArg === -1 ? 25 : Number(process.argv[batchArg + 1]);
 const edgar = new EdgarClient({ userAgent: requireEnv('SEC_USER_AGENT'), cacheDir: 'data/.cache/edgar' });
 
 const companies: CompanyRow[] = [];
@@ -29,7 +33,7 @@ for (const [companyId, company] of COMPANIES.entries()) {
     throw new Error(`CIK ${company.cik} belongs to "${sub.name}", expected ${company.edgarName}`);
   }
   companies.push({ id: companyId, ticker: company.ticker, name: company.name, cik: company.cik });
-  for (const ref of latest10Ks(sub, company.ticker, 3)) {
+  for (const ref of await edgar.latestTenKs(company.cik, company.ticker, 3)) {
     const { sections, missingRequired } = splitItems(htmlToBlocks(await edgar.document(ref)));
     const filingId = filings.length;
     filings.push({ id: filingId, companyId, form: '10-K', fiscalYear: ref.fiscalYear, periodEnd: ref.periodEnd,
@@ -60,6 +64,9 @@ if (failed.length > 0) {
   process.exit(1);
 }
 console.log(`${filings.length} filings, ${chunks.length} chunks`);
+const projected = chunks.length * 768 * 2 + gzipSync(JSON.stringify({ schemaVersion: 1, companies, filings, chunks }), { level: 9 }).byteLength
+  + RUNTIME_ALLOWANCE_BYTES;
+console.log(`Projected first visit: ${projected} bytes (budget ${FIRST_VISIT_BUDGET_BYTES})`);
 if (parseOnly) process.exit(0);
 
 let vectors: Map<string, Float32Array>;
@@ -67,6 +74,7 @@ try {
   vectors = await embedWithCache(toEmbed, {
     apiKey: requireEnv('GEMINI_API_KEY'),
     cacheDir: 'data/.cache/embeddings',
+    batchSize,
     onProgress: (done, total) => process.stdout.write(`\rembedded ${done}/${total}`),
   });
   process.stdout.write('\n');

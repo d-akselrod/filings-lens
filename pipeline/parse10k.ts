@@ -1,3 +1,4 @@
+import { compareItems } from '../src/core/types';
 import type { Block } from './html-blocks';
 
 export const ITEM_TITLES: Readonly<Record<string, string>> = {
@@ -33,6 +34,9 @@ export interface Section { item: string; title: string; blocks: Block[]; chars: 
 const HEADING = /^item\s+(\d{1,2}[a-c]?)\s*[.:\-–—]?\s*(.{0,200})$/i;
 const EXHIBIT_ITEMS = new Set(['15', '16']);
 const SIGNATURES = /^signatures?$/i;
+const AUDITOR_REPORT = /^report of independent registered public accounting firm/i;
+const EXHIBIT_INDEX = /^exhibit index$/i;
+const PART_LINE = /^part\s+(i|ii|iii|iv)\.?$/i;
 const MIN_SECTION_CHARS = 200;
 
 export function blockChars(b: Block): number {
@@ -48,10 +52,12 @@ export function splitItems(blocks: Block[]): { sections: Section[]; missingRequi
     return code && code in ITEM_TITLES ? [{ index, code }] : [];
   });
 
-  // Each Item keeps the occurrence followed by the most text; table-of-contents lines are followed by almost none.
+  // Each Item keeps the occurrence followed by the most text before a *different* Item's heading:
+  // table-of-contents lines are followed by almost none, and running page headers repeating the same Item don't count as ends.
   const best = new Map<string, { index: number; code: string; span: number }>();
   candidates.forEach((c, k) => {
-    const span = charsOf(blocks.slice(c.index + 1, candidates[k + 1]?.index ?? blocks.length));
+    const next = candidates.slice(k + 1).find(o => o.code !== c.code)?.index ?? blocks.length;
+    const span = charsOf(blocks.slice(c.index + 1, next));
     const current = best.get(c.code);
     if (!current || span > current.span) best.set(c.code, { ...c, span });
   });
@@ -64,10 +70,34 @@ export function splitItems(blocks: Block[]): { sections: Section[]; missingRequi
 
   const sections = headings
     .map((h, i) => {
-      const sectionBlocks = blocks.slice(h.index + 1, Math.min(headings[i + 1]?.index ?? end, end));
+      const sectionBlocks = withoutRunningHeaders(blocks.slice(h.index + 1, Math.min(headings[i + 1]?.index ?? end, end)), h.code);
       return { item: h.code, title: ITEM_TITLES[h.code]!, blocks: sectionBlocks, chars: charsOf(sectionBlocks) };
     })
     .filter(s => s.chars >= MIN_SECTION_CHARS);
 
+  // Some filers (e.g. NVIDIA) answer Item 8 with a cross-reference and file the audited statements under Item 15.
+  const item15 = kept.find(h => h.code === '15');
+  if (!sections.some(s => s.item === '8') && item15) {
+    const relocated = statementsAfter(blocks, item15.index, [kept.find(h => h.code === '16')?.index ?? -1, signaturesAt]);
+    if (charsOf(relocated) >= MIN_SECTION_CHARS) {
+      sections.push({ item: '8', title: ITEM_TITLES['8']!, blocks: relocated, chars: charsOf(relocated) });
+    }
+  }
+  sections.sort((a, b) => compareItems(a.item, b.item));
+
   return { sections, missingRequired: REQUIRED_ITEMS.filter(code => !sections.some(s => s.item === code)) };
+}
+
+/** From the auditor's report after the Item 15 heading up to the exhibit index (or Item 16 / signatures). */
+function statementsAfter(blocks: Block[], item15Index: number, otherStops: number[]): Block[] {
+  const isPara = (b: Block, re: RegExp) => b.kind === 'para' && re.test(b.text);
+  const start = blocks.findIndex((b, i) => i > item15Index && isPara(b, AUDITOR_REPORT));
+  if (start === -1) return [];
+  const stops = [blocks.findIndex((b, i) => i > start && isPara(b, EXHIBIT_INDEX)), ...otherStops].filter(i => i > start);
+  return withoutRunningHeaders(blocks.slice(start, stops.length > 0 ? Math.min(...stops) : blocks.length), '15');
+}
+
+/** Drops "PART II" lines and repeats of the section's own Item heading (page headers, the full-title heading line). */
+function withoutRunningHeaders(blocks: Block[], code: string): Block[] {
+  return blocks.filter(b => b.kind !== 'para' || !(PART_LINE.test(b.text) || HEADING.exec(b.text)?.[1]?.toUpperCase() === code));
 }

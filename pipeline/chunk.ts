@@ -1,6 +1,6 @@
 import type { Block } from './html-blocks';
 
-export const CHUNK = { targetTokens: 500, maxTokens: 600, overlapTokens: 75 } as const;
+export const CHUNK = { targetTokens: 600, maxTokens: 600, overlapTokens: 75 } as const;
 
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);

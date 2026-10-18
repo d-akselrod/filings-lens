@@ -1,10 +1,13 @@
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+export interface FilingColumns { accessionNumber: string[]; filingDate: string[]; reportDate: string[]; form: string[]; primaryDocument: string[] }
+
 export interface SubmissionsJson {
   cik: string;
   name: string;
-  filings: { recent: { accessionNumber: string[]; filingDate: string[]; reportDate: string[]; form: string[]; primaryDocument: string[] } };
+  /** `recent` holds ~1,000 filings; frequent filers keep older ones in paged `files`. */
+  filings: { recent: FilingColumns; files?: Array<{ name: string }> };
 }
 
 export interface FilingRef {
@@ -40,6 +43,13 @@ export function latest10Ks(sub: SubmissionsJson, ticker: string, count: number):
     }));
 }
 
+function mergeColumns(a: FilingColumns, b: FilingColumns): FilingColumns {
+  return {
+    accessionNumber: [...a.accessionNumber, ...b.accessionNumber], filingDate: [...a.filingDate, ...b.filingDate],
+    reportDate: [...a.reportDate, ...b.reportDate], form: [...a.form, ...b.form], primaryDocument: [...a.primaryDocument, ...b.primaryDocument],
+  };
+}
+
 const sleep = (ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms));
 
 /** SEC fair access: identify yourself and stay under 10 requests/second. Responses are cached on disk. */
@@ -54,6 +64,20 @@ export class EdgarClient {
 
   async submissions(cik: string): Promise<SubmissionsJson> {
     return JSON.parse(await this.cached(`CIK${cik}.json`, `https://data.sec.gov/submissions/CIK${cik}.json`)) as SubmissionsJson;
+  }
+
+  /** Newest `count` 10-Ks, reading older submission pages only when `recent` holds too few. */
+  async latestTenKs(cik: string, ticker: string, count: number): Promise<FilingRef[]> {
+    const sub = await this.submissions(cik);
+    let recent = sub.filings.recent;
+    let refs = latest10Ks(sub, ticker, count);
+    for (const page of sub.filings.files ?? []) {
+      if (refs.length >= count) break;
+      const older = JSON.parse(await this.cached(page.name, `https://data.sec.gov/submissions/${page.name}`)) as FilingColumns;
+      recent = mergeColumns(recent, older);
+      refs = latest10Ks({ ...sub, filings: { recent } }, ticker, count);
+    }
+    return refs;
   }
 
   async document(ref: FilingRef): Promise<string> {
