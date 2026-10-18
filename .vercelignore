@@ -1,0 +1,9 @@
+# Secrets and local caches never go to Vercel.
+.env*
+!.env.example
+data/.cache
+.superpowers
+.claude
+dist
+test-results
+playwright-report
