@@ -39,18 +39,21 @@ export async function toGeminiError(res: Response): Promise<GeminiError> {
   let message = body.slice(0, 300) || res.statusText || `HTTP ${res.status}`;
   let retryAfterMs: number | undefined;
   let quotaId: string | undefined;
+  let reason = reasonFor(res.status);
   try {
     const error = (JSON.parse(body) as {
-      error?: { message?: string; details?: Array<{ retryDelay?: unknown; violations?: Array<{ quotaId?: unknown }> }> };
+      error?: { message?: string; details?: Array<{ retryDelay?: unknown; reason?: unknown; violations?: Array<{ quotaId?: unknown }> }> };
     }).error;
     if (error?.message) message = error.message;
+    // Google answers an unknown or malformed key with 400 INVALID_ARGUMENT, not 401/403.
+    if (error?.details?.some(d => d.reason === 'API_KEY_INVALID')) reason = 'auth';
     retryAfterMs = error?.details?.map(d => parseDelay(d.retryDelay)).find(ms => ms !== undefined);
     const id = error?.details?.flatMap(d => d.violations ?? []).map(v => v.quotaId).find(q => typeof q === 'string');
     quotaId = typeof id === 'string' ? id : undefined;
   } catch {
     // not JSON — keep the raw text
   }
-  return new GeminiError(res.status, reasonFor(res.status), message, retryAfterMs, quotaId);
+  return new GeminiError(res.status, reason, message, retryAfterMs, quotaId);
 }
 
 async function post(url: string, apiKey: string, body: unknown, o?: { fetch?: typeof fetch; signal?: AbortSignal }): Promise<Response> {

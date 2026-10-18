@@ -80,6 +80,12 @@ test('maps HTTP errors to GeminiError reasons', async () => {
   expect(network).toMatchObject({ reason: 'network', status: 0 });
 });
 
+test('an invalid API key (HTTP 400 with reason API_KEY_INVALID) is an auth error', async () => {
+  const body = { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT',
+    details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'API_KEY_INVALID', domain: 'googleapis.com' }] } };
+  await expect(embedBatch('bad', ['a'], { fetch: fakeFetch(json(body, 400)).fn })).rejects.toMatchObject({ reason: 'auth', status: 400 });
+});
+
 test('generateText sends the system instruction and drops thought parts', async () => {
   const f = fakeFetch(json({
     candidates: [{
