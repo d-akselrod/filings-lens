@@ -4,7 +4,7 @@ Ask questions about the Magnificent 7's annual reports and see exactly how the a
 
 ## Live demo
 
-Not deployed yet. The link goes here once the full corpus is embedded and the Vercel deployment is verified.
+**https://filings-lens.vercel.app** — loads in about 4 seconds on broadband (13.8 MB on a first visit; repeat visits come from the browser cache).
 
 ## What it does
 
@@ -65,7 +65,7 @@ The first visit downloads about 15 MB (the database engine, passages and vectors
 
 ## Run it locally
 
-Requires Node 22 or later.
+Requires Node 24 or later.
 
 ```bash
 npm install
