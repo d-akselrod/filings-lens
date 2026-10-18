@@ -58,8 +58,11 @@ export interface SessionDeps {
   now?: () => number;
 }
 
-/** Embedding and answers have separate quotas and global budgets; these failures leave answers available. */
-const EMBED_ONLY_FAILURES: ReadonlySet<ClientErrorCode> = new Set(['upstream_quota', 'global_budget']);
+/**
+ * Embeddings (OpenRouter) and answers (Gemini) use different services, quotas and keys, so an embedding failure says
+ * nothing about answers — except the two refusals the API applies to both: the region rule and the per-visitor cap.
+ */
+const SHARED_REFUSALS: ReadonlySet<ClientErrorCode> = new Set(['restricted_region', 'visitor_cap']);
 
 export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionState>> {
   const now = d.now ?? (() => performance.now());
@@ -163,19 +166,18 @@ export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionSta
           let vector: Float32Array | null = null;
           let vectorSource: Turn['vectorSource'] = 'none';
           let embedMs: number | undefined;
-          const src = keySource();
           if (o.sampleVector) {
             vector = o.sampleVector;
             vectorSource = 'sample';
-          } else if (src) {
+          } else if (d.keys().builtin !== 'restricted') {
             const started = now();
             try {
-              vector = await d.embed(retrievalText, src);
+              vector = await d.embed(retrievalText);
               vectorSource = 'api';
               embedMs = now() - started;
             } catch (e) {
               // Search still runs, keyword-only.
-              if (e instanceof ClientError && src.kind === 'builtin' && !EMBED_ONLY_FAILURES.has(e.code)) noteBuiltin(e.code);
+              if (e instanceof ClientError && SHARED_REFUSALS.has(e.code)) noteBuiltin(e.code);
             }
           }
           patch(id, { vector, vectorSource, embedMs });

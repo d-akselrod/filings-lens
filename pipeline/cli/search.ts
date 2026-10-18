@@ -2,7 +2,7 @@
  * npm run search -- "<question>" [--mode hybrid|vector|keyword] [--metric cosine|l2|dot]
  *                                [--dims 128|256|512|768] [--no-renormalize] [--no-embed]
  */
-import { embedBatch, queryText } from '../../src/core/gemini';
+import { embedBatch, queryText } from '../../src/core/embeddings';
 import { DEFAULT_SETTINGS, type Dims, type Metric, type SearchMode, type SearchSettings } from '../../src/core/types';
 import { requireEnv } from '../env';
 import { loadEngineFromDisk } from '../node-data';
@@ -37,7 +37,7 @@ if (!question) {
 }
 
 const { engine } = await loadEngineFromDisk('public/data');
-const vector = noEmbed ? null : (await embedBatch(requireEnv('GEMINI_API_KEY'), [queryText(question)]))[0]!;
+const vector = noEmbed ? null : (await embedBatch(requireEnv('OPENROUTER_API_KEY'), [queryText(question)]))[0]!;
 const r = await engine.search({ text: question, vector }, settings);
 const views = new Map((await engine.getChunks(r.results.slice(0, 10).map(x => x.chunkId))).map(v => [v.id, v]));
 

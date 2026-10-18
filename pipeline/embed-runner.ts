@@ -1,12 +1,13 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { EMBED_DIMS, EMBED_MODEL, embedBatch, GeminiError } from '../src/core/gemini';
+import { EMBED_DIMS, EMBED_MODEL, embedBatch } from '../src/core/embeddings';
+import { isDailyQuota, UpstreamError } from '../src/core/upstream';
 
 export class QuotaExhaustedError extends Error {
   constructor(daily = false) {
     super(daily
-      ? 'Daily free-tier quota exhausted; progress is cached — rerun after midnight Pacific'
+      ? 'Daily free-tier quota exhausted; progress is cached — rerun after the daily reset'
       : 'Free-tier quota exhausted; progress is cached — rerun later');
     this.name = 'QuotaExhaustedError';
   }
@@ -73,9 +74,9 @@ export async function embedWithCache(items: Array<{ key: string; text: string }>
     try {
       vectors = await embed(o.apiKey, batch.map(([, text]) => text));
     } catch (e) {
-      if (e instanceof GeminiError && e.reason === 'quota') {
+      if (e instanceof UpstreamError && e.reason === 'quota') {
         // Waiting out a per-day cap is pointless; stop so the next run resumes from the cache.
-        if (/PerDay/i.test(e.quotaId ?? '')) throw new QuotaExhaustedError(true);
+        if (isDailyQuota(e)) throw new QuotaExhaustedError(true);
         consecutiveQuota++;
         if (consecutiveQuota >= maxQuota) throw new QuotaExhaustedError();
         const waitMs = Math.min((e.retryAfterMs ?? DEFAULT_QUOTA_DELAY) * 2 ** (consecutiveQuota - 1), MAX_QUOTA_DELAY);
@@ -83,7 +84,7 @@ export async function embedWithCache(items: Array<{ key: string; text: string }>
         await sleep(waitMs);
         continue;
       }
-      if (e instanceof GeminiError && (e.reason === 'server' || e.reason === 'network') && serverRetries < SERVER_RETRY_DELAYS.length) {
+      if (e instanceof UpstreamError && (e.reason === 'server' || e.reason === 'network') && serverRetries < SERVER_RETRY_DELAYS.length) {
         const waitMs = SERVER_RETRY_DELAYS[serverRetries++]!;
         o.onRetry?.(e.reason, waitMs, e.message);
         await sleep(waitMs);

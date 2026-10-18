@@ -48,7 +48,7 @@ export interface ChunkView extends ChunkRow { ticker: string; companyName: strin
 export interface Facets { tickers: string[]; fiscalYears: number[]; items: Array<{ item: string; title: string }> }
 
 export interface Manifest {
-  schemaVersion: 1; builtAt: string; embeddingModel: 'gemini-embedding-2'; dims: 768; vectorEncoding: 'f16le';
+  schemaVersion: 1; builtAt: string; embeddingModel: string; dims: 768; vectorEncoding: 'f16le';
   chunkCount: number;
   /** file is relative to /data/, e.g. "v/corpus.1a2b3c4d.json" */
   corpus: { file: string; bytes: number; gzipBytes: number };

@@ -1,4 +1,5 @@
-import { embedBatch, streamGenerate } from '../src/core/gemini.js';
+import { embedBatch } from '../src/core/embeddings.js';
+import { streamGenerate } from '../src/core/gemini.js';
 import { loadCorpusLookup, type CorpusLookup } from './corpus.js';
 import { readEnv } from './env.js';
 import type { Deps } from './handlers.js';

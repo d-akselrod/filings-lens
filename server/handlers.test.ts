@@ -1,5 +1,6 @@
 import { describe, expect, test, vi } from 'vitest';
-import { GeminiError, type StreamRequest } from '../src/core/gemini';
+import type { StreamRequest } from '../src/core/gemini';
+import { UpstreamError } from '../src/core/upstream';
 import { decodeVectorB64 } from '../src/core/scorecard';
 import type { CorpusLookup } from './corpus';
 import type { ServerEnv } from './env';
@@ -19,7 +20,7 @@ function makeDeps(env: Partial<ServerEnv> = {}, stream?: Deps['stream']) {
   const streamSpy = vi.fn(stream ?? (async function* () { yield 'Revenue grew [1].'; }));
   const deps: Deps = {
     env: {
-      geminiKey: 'server-key', allowedOrigins: [], ipSalt: 'salt', upstash: null,
+      geminiKey: 'server-key', openrouterKey: 'embed-key', allowedOrigins: [], ipSalt: 'salt', upstash: null,
       limits: { visitorDailyRequests: 50, globalDailyAnswers: 200, globalDailyEmbeds: 800 }, ...env,
     },
     store: memoryStore(),
@@ -115,8 +116,19 @@ test('foreign origins get 403 when ALLOWED_ORIGINS is set (Review Focus #5)', as
   expect((await handleAnswer(post('/api/answer', answerBody, { origin: 'https://a.app' }), deps)).status).toBe(200);
 });
 
+test('each endpoint needs its own key: embeddings use OpenRouter, answers use Gemini', async () => {
+  const noEmbedKey = makeDeps({ openrouterKey: null });
+  const res = await handleEmbed(post('/api/embed', { text: 'q' }), noEmbedKey.deps);
+  expect(res.status).toBe(503);
+  expect((await errorOf(res)).code).toBe('missing_key');
+  expect((await handleAnswer(post('/api/answer', answerBody), noEmbedKey.deps)).status).toBe(200);
+  const noAnswerKey = makeDeps({ geminiKey: null });
+  expect((await handleEmbed(post('/api/embed', { text: 'q' }), noAnswerKey.deps)).status).toBe(200);
+  expect((await handleAnswer(post('/api/answer', answerBody), noAnswerKey.deps)).status).toBe(503);
+});
+
 test('a missing key gives 503 and the visitor cap gives 429', async () => {
-  expect((await handleEmbed(post('/api/embed', { text: 'q' }), makeDeps({ geminiKey: null }).deps)).status).toBe(503);
+  expect((await handleEmbed(post('/api/embed', { text: 'q' }), makeDeps({ openrouterKey: null }).deps)).status).toBe(503);
   const { deps } = makeDeps({ limits: { visitorDailyRequests: 1, globalDailyAnswers: 200, globalDailyEmbeds: 800 } });
   expect((await handleEmbed(post('/api/embed', { text: 'q' }), deps)).status).toBe(200);
   const capped = await handleEmbed(post('/api/embed', { text: 'q' }), deps);
@@ -124,8 +136,8 @@ test('a missing key gives 503 and the visitor cap gives 429', async () => {
   expect((await errorOf(capped)).code).toBe('visitor_cap');
 });
 
-const dailyQuota = () => new GeminiError(429, 'quota', 'Resource exhausted', 81_478_000, 'GenerateRequestsPerDayPerProjectPerModel-FreeTier');
-const minuteQuota = () => new GeminiError(429, 'quota', 'Resource exhausted', 31_400, 'GenerateContentInputTokensPerModelPerMinute-FreeTier');
+const dailyQuota = () => new UpstreamError(429, 'quota', 'Resource exhausted', 81_478_000, 'GenerateRequestsPerDayPerProjectPerModel-FreeTier');
+const minuteQuota = () => new UpstreamError(429, 'quota', 'Resource exhausted', 31_400, 'GenerateContentInputTokensPerModelPerMinute-FreeTier');
 
 describe('streaming answers (Review Focus #3)', () => {
   test('a daily quota error before the first token is a JSON 429 upstream_quota', async () => {
@@ -147,7 +159,7 @@ describe('streaming answers (Review Focus #3)', () => {
     expect((await errorOf(res)).code).toBe('upstream_busy');
 
     const unknown = makeDeps({}, async function* () {
-      throw new GeminiError(429, 'quota', 'Resource exhausted');
+      throw new UpstreamError(429, 'quota', 'Resource exhausted');
     });
     const res2 = await handleAnswer(post('/api/answer', answerBody), unknown.deps);
     expect((await errorOf(res2)).code).toBe('upstream_busy');
@@ -215,7 +227,7 @@ test('embed returns the query vector as base64 float16', async () => {
   const { vector } = (await res.json()) as { vector: string };
   expect(atob(vector)).toHaveLength(1536);
   expect(decodeVectorB64(vector)[0]).toBeCloseTo(0.25, 3);
-  expect(embed).toHaveBeenCalledWith('server-key', ['task: search result | query: export controls']);
+  expect(embed).toHaveBeenCalledWith('embed-key', ['query: export controls']);
 });
 
 test('wrong methods get 405', async () => {

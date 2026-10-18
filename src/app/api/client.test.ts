@@ -47,9 +47,9 @@ test('fetchStatus reads /api/status', async () => {
   expect(f.calls[0]!.url).toBe('/api/status');
 });
 
-test('the built-in embed posts the question and decodes the float16 vector', async () => {
+test('questions are always embedded by /api/embed: the corpus vectors come from a model a Gemini key cannot call', async () => {
   const f = fakeFetch(json({ vector: encodeVectorB64(new Float32Array(768).fill(0.5)) }));
-  const v = await embedQuestion('export controls', builtin, f.fn);
+  const v = await embedQuestion('export controls', f.fn);
   expect(f.calls[0]).toMatchObject({ url: '/api/embed', init: { method: 'POST' } });
   expect(JSON.parse(String(f.calls[0]!.init!.body))).toEqual({ text: 'export controls' });
   expect(v).toHaveLength(768);
@@ -58,12 +58,12 @@ test('the built-in embed posts the question and decodes the float16 vector', asy
 
 test('a built-in 403 restricted_region becomes ClientError restricted_region', async () => {
   const f = fakeFetch(json({ error: { code: 'restricted_region', message: "The built-in key isn't available in your region" } }, 403));
-  expect(await failure(embedQuestion('q', builtin, f.fn))).toMatchObject({ code: 'restricted_region' });
+  expect(await failure(embedQuestion('q', f.fn))).toMatchObject({ code: 'restricted_region' });
 });
 
 test('a dropped connection or a non-JSON error page still becomes a ClientError', async () => {
-  expect(await failure(embedQuestion('q', builtin, fakeFetch(new TypeError('Failed to fetch')).fn))).toMatchObject({ code: 'network' });
-  expect(await failure(embedQuestion('q', builtin, fakeFetch(new Response('<html>Bad gateway</html>', { status: 502 })).fn)))
+  expect(await failure(embedQuestion('q', fakeFetch(new TypeError('Failed to fetch')).fn))).toMatchObject({ code: 'network' });
+  expect(await failure(embedQuestion('q', fakeFetch(new Response('<html>Bad gateway</html>', { status: 502 })).fn)))
     .toMatchObject({ code: 'upstream_error' });
 });
 
@@ -97,22 +97,14 @@ test('a built-in answer refused before streaming throws the API error code', asy
     .toMatchObject({ code: 'visitor_cap' });
 });
 
-test('your own key calls only Google with that key, sending the shared prompt with minimal thinking', async () => {
-  const f = fakeFetch(
-    json({ embeddings: [{ values: Array(768).fill(0.1) }] }),
-    sse({ candidates: [{ content: { role: 'model', parts: [{ text: 'Sales are restricted [1].' }] } }] }),
-  );
-  await embedQuestion('q', byok, f.fn);
+test('your own key answers directly with Google, sending the shared prompt with minimal thinking', async () => {
+  const f = fakeFetch(sse({ candidates: [{ content: { role: 'model', parts: [{ text: 'Sales are restricted [1].' }] } }] }));
   const parts = await collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', corpus: 'v/c.json', src: byok }, f.fn));
   expect(parts).toEqual(['Sales are restricted [1].']);
-  expect(f.calls).toHaveLength(2);
-  for (const c of f.calls) {
-    expect(c.url.startsWith('https://generativelanguage.googleapis.com/')).toBe(true);
-    expect(new Headers(c.init?.headers).get('x-goog-api-key')).toBe('my-own-key');
-  }
-  expect(JSON.parse(String(f.calls[0]!.init!.body)).requests[0].content.parts[0].text).toBe('task: search result | query: q');
-  expect(f.calls[1]!.url).toContain('/models/gemma-4-26b-a4b-it:streamGenerateContent');
-  const body = JSON.parse(String(f.calls[1]!.init!.body));
+  expect(f.calls).toHaveLength(1);
+  expect(f.calls[0]!.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemma-4-26b-a4b-it:streamGenerateContent?alt=sse');
+  expect(new Headers(f.calls[0]!.init?.headers).get('x-goog-api-key')).toBe('my-own-key');
+  const body = JSON.parse(String(f.calls[0]!.init!.body));
   expect(body.systemInstruction.parts[0].text).toBe(SYSTEM_INSTRUCTION);
   expect(body.contents[0].parts[0].text).toBe(buildUserPrompt('q', passages));
   expect(body.generationConfig).toEqual({ thinkingConfig: { thinkingLevel: 'minimal' } });
@@ -134,7 +126,6 @@ test("your own key's Google errors map to byok_invalid, byok_quota, network and 
     [() => json({ error: { code: 500, message: 'Internal error' } }, 500), 'upstream_error'],
   ];
   for (const [response, code] of cases) {
-    expect(await failure(embedQuestion('q', byok, fakeFetch(response()).fn))).toMatchObject({ code });
     expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', corpus: 'v/c.json', src: byok }, fakeFetch(response()).fn))))
       .toMatchObject({ code });
   }

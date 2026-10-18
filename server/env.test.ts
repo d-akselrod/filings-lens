@@ -1,9 +1,9 @@
 import { expect, test } from 'vitest';
 import { readEnv } from './env';
 
-test('defaults when only the key is set', () => {
-  expect(readEnv({ GEMINI_API_KEY: ' k ' })).toEqual({
-    geminiKey: 'k', allowedOrigins: [], ipSalt: '', upstash: null,
+test('defaults when only the keys are set', () => {
+  expect(readEnv({ GEMINI_API_KEY: ' k ', OPENROUTER_API_KEY: ' or ' })).toEqual({
+    geminiKey: 'k', openrouterKey: 'or', allowedOrigins: [], ipSalt: '', upstash: null,
     limits: { visitorDailyRequests: 50, globalDailyAnswers: 200, globalDailyEmbeds: 800 },
   });
 });
@@ -14,6 +14,7 @@ test('parses origins, limits and either Upstash variable naming', () => {
     KV_REST_API_URL: 'https://redis.example', KV_REST_API_TOKEN: 't', IP_HASH_SALT: 's',
   });
   expect(env.geminiKey).toBeNull();
+  expect(env.openrouterKey).toBeNull();
   expect(env.allowedOrigins).toEqual(['https://a.app', 'https://b.app']);
   expect(env.limits).toEqual({ visitorDailyRequests: 20, globalDailyAnswers: 200, globalDailyEmbeds: 800 });
   expect(env.upstash).toEqual({ url: 'https://redis.example', token: 't' });

@@ -1,45 +1,13 @@
+import { networkError, reasonFor, UpstreamError } from './upstream.js';
+
 export const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-export const EMBED_MODEL = 'gemini-embedding-2';
-export const EMBED_DIMS = 768;
-export const EMBED_BATCH_MAX = 100;
-
-export type GeminiReason = 'quota' | 'auth' | 'bad_request' | 'server' | 'network';
-
-export class GeminiError extends Error {
-  /** quotaId from the API's QuotaFailure detail, e.g. "...RequestsPerDay..." for daily caps. */
-  constructor(readonly status: number, readonly reason: GeminiReason, message: string, readonly retryAfterMs?: number, readonly quotaId?: string) {
-    super(message);
-    this.name = 'GeminiError';
-  }
-}
-
-/** A daily cap ends the key's day; per-minute caps (requests or tokens) clear within about a minute. */
-export function isDailyQuota(e: GeminiError): boolean {
-  return /PerDay/i.test(e.quotaId ?? '') || (e.retryAfterMs ?? 0) > 3_600_000;
-}
-
-/** gemini-embedding-2 has no task_type; the task goes in the text. */
-export function queryText(q: string): string {
-  return `task: search result | query: ${q}`;
-}
-
-export function documentText(title: string, text: string): string {
-  return `title: ${title} | text: ${text}`;
-}
-
-function reasonFor(status: number): GeminiReason {
-  if (status === 429) return 'quota';
-  if (status === 401 || status === 403) return 'auth';
-  if (status >= 500) return 'server';
-  return 'bad_request';
-}
 
 function parseDelay(delay: unknown): number | undefined {
   const match = typeof delay === 'string' ? /^(\d+(?:\.\d+)?)s$/.exec(delay) : null;
   return match ? Math.round(Number(match[1]) * 1000) : undefined;
 }
 
-export async function toGeminiError(res: Response): Promise<GeminiError> {
+export async function toGeminiError(res: Response): Promise<UpstreamError> {
   const body = await res.text().catch(() => '');
   let message = body.slice(0, 300) || res.statusText || `HTTP ${res.status}`;
   let retryAfterMs: number | undefined;
@@ -58,7 +26,7 @@ export async function toGeminiError(res: Response): Promise<GeminiError> {
   } catch {
     // not JSON — keep the raw text
   }
-  return new GeminiError(res.status, reason, message, retryAfterMs, quotaId);
+  return new UpstreamError(res.status, reason, message, retryAfterMs, quotaId);
 }
 
 async function post(url: string, apiKey: string, body: unknown, o?: { fetch?: typeof fetch; signal?: AbortSignal }): Promise<Response> {
@@ -72,20 +40,10 @@ async function post(url: string, apiKey: string, body: unknown, o?: { fetch?: ty
     });
   } catch (e) {
     if (e instanceof DOMException && e.name === 'AbortError') throw e;
-    throw new GeminiError(0, 'network', e instanceof Error ? e.message : String(e));
+    throw networkError(e);
   }
   if (!res.ok) throw await toGeminiError(res);
   return res;
-}
-
-export async function embedBatch(apiKey: string, texts: string[], o?: { fetch?: typeof fetch; signal?: AbortSignal }): Promise<Float32Array[]> {
-  if (texts.length > EMBED_BATCH_MAX) throw new RangeError(`embedBatch takes at most ${EMBED_BATCH_MAX} texts, got ${texts.length}`);
-  if (texts.length === 0) return [];
-  const res = await post(`${GEMINI_BASE}/models/${EMBED_MODEL}:batchEmbedContents`, apiKey, {
-    requests: texts.map(text => ({ model: `models/${EMBED_MODEL}`, content: { parts: [{ text }] }, outputDimensionality: EMBED_DIMS })),
-  }, o);
-  const { embeddings } = (await res.json()) as { embeddings: Array<{ values: number[] }> };
-  return embeddings.map(e => Float32Array.from(e.values));
 }
 
 interface GenerateResponse {
@@ -139,7 +97,7 @@ export async function* streamGenerate(apiKey: string, r: StreamRequest, o?: { fe
     contents: [{ role: 'user', parts: [{ text: r.user }] }],
     ...(r.thinkingLevel ? { generationConfig: { thinkingConfig: { thinkingLevel: r.thinkingLevel } } } : {}),
   }, { fetch: o?.fetch, signal: r.signal });
-  if (!res.body) throw new GeminiError(502, 'server', 'empty streaming response');
+  if (!res.body) throw new UpstreamError(502, 'server', 'empty streaming response');
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
@@ -149,21 +107,21 @@ export async function* streamGenerate(apiKey: string, r: StreamRequest, o?: { fe
       chunk = await reader.read();
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') throw e;
-      throw new GeminiError(0, 'network', e instanceof Error ? e.message : String(e));
+      throw new UpstreamError(0, 'network', e instanceof Error ? e.message : String(e));
     }
     buffer += decoder.decode(chunk.value, { stream: !chunk.done });
     const { events, rest } = parseSseLines(chunk.done ? `${buffer}\n` : buffer);
     buffer = rest;
     for (const event of events) {
       const error = (event as { error?: { code?: number; message?: string } }).error;
-      if (error) throw new GeminiError(error.code ?? 500, error.code === 429 ? 'quota' : 'server', error.message ?? 'stream error');
+      if (error) throw new UpstreamError(error.code ?? 500, error.code === 429 ? 'quota' : 'server', error.message ?? 'stream error');
       const response = event as GenerateResponse;
       const blocked = response.promptFeedback?.blockReason;
-      if (blocked) throw new GeminiError(200, 'server', `Gemini blocked the prompt (${blocked})`);
+      if (blocked) throw new UpstreamError(200, 'server', `Gemini blocked the prompt (${blocked})`);
       const text = answerText(response);
       if (text) yield text;
       const stop = response.candidates?.[0]?.finishReason;
-      if (stop && !NORMAL_STOPS.has(stop)) throw new GeminiError(200, 'server', `Gemini stopped the answer early (${stop})`);
+      if (stop && !NORMAL_STOPS.has(stop)) throw new UpstreamError(200, 'server', `Gemini stopped the answer early (${stop})`);
     }
     if (chunk.done) return;
   }

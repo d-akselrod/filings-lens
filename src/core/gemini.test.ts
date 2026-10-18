@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { documentText, embedBatch, GeminiError, generateText, isDailyQuota, queryText } from './gemini';
+import { generateText } from './gemini';
+import { UpstreamError } from './upstream';
 
 type Call = { url: string; init: RequestInit };
 
@@ -28,37 +29,10 @@ const quotaBody = {
   },
 };
 
-test('embedBatch posts one batch request and returns vectors in order', async () => {
-  const f = fakeFetch(json({ embeddings: [{ values: Array(768).fill(0.1) }, { values: Array(768).fill(0.2) }] }));
-  const out = await embedBatch('k', ['a', 'b'], { fetch: f.fn });
-  expect(f.calls).toHaveLength(1);
-  expect(f.calls[0]!.url).toBe('https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-2:batchEmbedContents');
-  expect(f.calls[0]!.init.method).toBe('POST');
-  expect(new Headers(f.calls[0]!.init.headers).get('x-goog-api-key')).toBe('k');
-  expect(JSON.parse(String(f.calls[0]!.init.body))).toEqual({
-    requests: ['a', 'b'].map(text => ({ model: 'models/gemini-embedding-2', content: { parts: [{ text }] }, outputDimensionality: 768 })),
-  });
-  expect(out.map(v => [v.constructor.name, v.length])).toEqual([['Float32Array', 768], ['Float32Array', 768]]);
-  expect(out[0]![0]).toBeCloseTo(0.1, 6);
-  expect(out[1]![767]).toBeCloseTo(0.2, 6);
-});
-
-test('embedBatch rejects more than 100 texts before calling the API', async () => {
-  const f = fakeFetch();
-  await expect(embedBatch('k', Array(101).fill('x'), { fetch: f.fn })).rejects.toBeInstanceOf(RangeError);
-  expect(f.calls).toHaveLength(0);
-});
-
-test('embedBatch of no texts makes no request', async () => {
-  const f = fakeFetch();
-  expect(await embedBatch('k', [], { fetch: f.fn })).toEqual([]);
-  expect(f.calls).toHaveLength(0);
-});
-
-test('maps HTTP errors to GeminiError reasons', async () => {
+test('Gemini HTTP errors map to upstream reasons', async () => {
   const reasonOf = async (res: Response | Error) => {
     try {
-      await embedBatch('k', ['a'], { fetch: fakeFetch(res).fn });
+      await generateText('k', { model: 'gemma-4-26b-a4b-it', system: 'S', user: 'U' }, { fetch: fakeFetch(res).fn });
     } catch (e) {
       return e;
     }
@@ -76,14 +50,15 @@ test('maps HTTP errors to GeminiError reasons', async () => {
   expect(await reasonOf(json({ error: { code: 400, message: 'bad', status: 'INVALID_ARGUMENT' } }, 400))).toMatchObject({ reason: 'bad_request' });
   expect(await reasonOf(new Response('<html>Bad gateway</html>', { status: 502 }))).toMatchObject({ reason: 'server', status: 502 });
   const network = await reasonOf(new TypeError('fetch failed'));
-  expect(network).toBeInstanceOf(GeminiError);
+  expect(network).toBeInstanceOf(UpstreamError);
   expect(network).toMatchObject({ reason: 'network', status: 0 });
 });
 
 test('an invalid API key (HTTP 400 with reason API_KEY_INVALID) is an auth error', async () => {
   const body = { error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT',
     details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'API_KEY_INVALID', domain: 'googleapis.com' }] } };
-  await expect(embedBatch('bad', ['a'], { fetch: fakeFetch(json(body, 400)).fn })).rejects.toMatchObject({ reason: 'auth', status: 400 });
+  await expect(generateText('bad', { model: 'gemma-4-26b-a4b-it', system: 'S', user: 'U' }, { fetch: fakeFetch(json(body, 400)).fn }))
+    .rejects.toMatchObject({ reason: 'auth', status: 400 });
 });
 
 test('generateText sends the system instruction and drops thought parts', async () => {
@@ -108,16 +83,4 @@ test('generateText sends a thinking level as generationConfig.thinkingConfig', a
   const f = fakeFetch(json({ candidates: [{ content: { role: 'model', parts: [{ text: 'OK' }] } }] }));
   await generateText('k', { model: 'gemma-4-26b-a4b-it', system: 'SYS', user: 'USER', thinkingLevel: 'minimal' }, { fetch: f.fn });
   expect(JSON.parse(String(f.calls[0]!.init.body)).generationConfig).toEqual({ thinkingConfig: { thinkingLevel: 'minimal' } });
-});
-
-test('isDailyQuota tells a used-up day from a per-minute limit', () => {
-  expect(isDailyQuota(new GeminiError(429, 'quota', 'q', 81_478_000, 'GenerateRequestsPerDayPerProjectPerModel-FreeTier'))).toBe(true);
-  expect(isDailyQuota(new GeminiError(429, 'quota', 'q', 7_200_000))).toBe(true);
-  expect(isDailyQuota(new GeminiError(429, 'quota', 'q', 21_000, 'GenerateContentInputTokensPerModelPerMinute-FreeTier'))).toBe(false);
-  expect(isDailyQuota(new GeminiError(429, 'quota', 'q'))).toBe(false);
-});
-
-test('task prefixes for gemini-embedding-2', () => {
-  expect(queryText('x')).toBe('task: search result | query: x');
-  expect(documentText('T', 'b')).toBe('title: T | text: b');
 });

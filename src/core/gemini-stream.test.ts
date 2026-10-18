@@ -1,5 +1,6 @@
 import { expect, test } from 'vitest';
-import { GeminiError, parseSseLines, streamGenerate } from './gemini';
+import { parseSseLines, streamGenerate } from './gemini';
+import { UpstreamError } from './upstream';
 
 const encoder = new TextEncoder();
 
@@ -71,7 +72,7 @@ test('an error event mid-stream yields what arrived, then throws', async () => {
   await expect(gen.next()).rejects.toMatchObject({ reason: 'quota' });
 });
 
-test('a dropped connection mid-stream becomes a network GeminiError', async () => {
+test('a dropped connection mid-stream becomes a network UpstreamError', async () => {
   const firstEventBytes = encoder.encode(`data: ${JSON.stringify(part('Revenue grew'))}\r\n\r\n`).length;
   const gen = streamGenerate('k', request, { fetch: fakeFetch(sseResponse([part('Revenue grew'), part(' strongly')], firstEventBytes, 1)).fn });
   const seen: string[] = [];
@@ -83,7 +84,7 @@ test('a dropped connection mid-stream becomes a network GeminiError', async () =
     }
   })();
   expect(seen).toEqual(['Revenue grew']);
-  expect(error).toBeInstanceOf(GeminiError);
+  expect(error).toBeInstanceOf(UpstreamError);
   expect(error).toMatchObject({ reason: 'network' });
 });
 

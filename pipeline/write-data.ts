@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
+import { EMBED_MODEL } from '../src/core/embeddings';
 import { encodeF16 } from '../src/core/float16';
 import type { CorpusFile, Manifest } from '../src/core/types';
 
@@ -60,7 +61,7 @@ export async function writeDataFiles(corpus: CorpusFile, vectorsByKey: Map<strin
 
   const previous = await readManifest(o.publicDir);
   const manifest: Manifest = {
-    schemaVersion: 1, builtAt: new Date().toISOString(), embeddingModel: 'gemini-embedding-2', dims: 768, vectorEncoding: 'f16le',
+    schemaVersion: 1, builtAt: new Date().toISOString(), embeddingModel: EMBED_MODEL, dims: 768, vectorEncoding: 'f16le',
     chunkCount: corpus.chunks.length,
     corpus: { file: `v/${corpusFile}`, bytes: Buffer.byteLength(corpusJson), gzipBytes },
     vectors: { file: `v/${vectorsFile}`, bytes: vectors.byteLength },

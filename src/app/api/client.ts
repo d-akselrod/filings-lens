@@ -1,7 +1,8 @@
 import type { ApiErrorCode } from '../../../server/handlers';
-import { ANSWER_MODELS, embedBatch, GeminiError, isDailyQuota, parseSseLines, queryText, streamGenerate, type ModelChoice } from '../../core/gemini';
+import { ANSWER_MODELS, parseSseLines, streamGenerate, type ModelChoice } from '../../core/gemini';
 import { buildUserPrompt, SYSTEM_INSTRUCTION, type PromptPassage } from '../../core/prompt';
 import { decodeVectorB64 } from '../../core/scorecard';
+import { isDailyQuota, UpstreamError } from '../../core/upstream';
 import type { BuiltinStatus } from '../state/keys';
 
 export type KeySource = { kind: 'builtin' } | { kind: 'byok'; key: string };
@@ -39,12 +40,12 @@ async function send(url: string, init: RequestInit, f: typeof fetch): Promise<Re
 const postJson = (url: string, body: unknown, f: typeof fetch, signal?: AbortSignal) =>
   send(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body), signal }, f);
 
-/** Errors from Google on the visitor's own key, in the client's terms. */
+/** Errors from Google on the visitor's own key (answers only), in the client's terms. */
 function byokError(e: unknown): unknown {
   if (isAbort(e)) return e;
-  const reason = e instanceof GeminiError ? e.reason : null;
+  const reason = e instanceof UpstreamError ? e.reason : null;
   if (reason === 'auth') return new ClientError('byok_invalid', messageOf(e));
-  if (reason === 'quota') return new ClientError(isDailyQuota(e as GeminiError) ? 'byok_quota' : 'upstream_busy', messageOf(e));
+  if (reason === 'quota') return new ClientError(isDailyQuota(e as UpstreamError) ? 'byok_quota' : 'upstream_busy', messageOf(e));
   if (reason === 'network') return new ClientError('network', messageOf(e));
   return new ClientError('upstream_error', messageOf(e));
 }
@@ -53,15 +54,11 @@ export async function fetchStatus(f: typeof fetch = fetch): Promise<{ region: 'o
   return (await send('/api/status', { cache: 'no-store' }, f)).json();
 }
 
-export async function embedQuestion(text: string, src: KeySource, f: typeof fetch = fetch): Promise<Float32Array> {
-  if (src.kind === 'byok') {
-    try {
-      const [vector] = await embedBatch(src.key, [queryText(text)], { fetch: f });
-      return vector!;
-    } catch (e) {
-      throw byokError(e);
-    }
-  }
+/**
+ * Questions are always embedded by /api/embed, even for visitors with their own Gemini key: the corpus vectors come
+ * from NVIDIA's Nemotron 3 Embed (via OpenRouter), which a Gemini key can't call.
+ */
+export async function embedQuestion(text: string, f: typeof fetch = fetch): Promise<Float32Array> {
   const { vector } = (await (await postJson('/api/embed', { text }, f)).json()) as { vector: string };
   return decodeVectorB64(vector);
 }

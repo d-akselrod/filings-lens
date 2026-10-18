@@ -1,7 +1,9 @@
-import { ANSWER_MODELS, GeminiError, isDailyQuota, queryText, type ModelChoice, type StreamRequest } from '../src/core/gemini.js';
+import { queryText } from '../src/core/embeddings.js';
+import { ANSWER_MODELS, type ModelChoice, type StreamRequest } from '../src/core/gemini.js';
 import { buildUserPrompt, MAX_PASSAGES, MAX_QUESTION_CHARS, SYSTEM_INSTRUCTION, type PromptPassage } from '../src/core/prompt.js';
 import { isRestrictedCountry } from '../src/core/region.js';
 import { encodeVectorB64 } from '../src/core/scorecard.js';
+import { isDailyQuota, UpstreamError } from '../src/core/upstream.js';
 import type { CorpusLookup } from './corpus.js';
 import type { ServerEnv } from './env.js';
 import { checkLimits, visitorId, type CounterStore, type LimitKind } from './limits.js';
@@ -27,12 +29,12 @@ const fail = (status: number, code: ApiErrorCode, message: string, headers?: Rec
 const countryOf = (req: Request) => req.headers.get('x-vercel-ip-country');
 const ipOf = (req: Request) => req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 
-function quotaCode(e: GeminiError): 'upstream_quota' | 'upstream_busy' {
+function quotaCode(e: UpstreamError): 'upstream_quota' | 'upstream_busy' {
   return isDailyQuota(e) ? 'upstream_quota' : 'upstream_busy';
 }
 
 function upstreamFailure(e: unknown): Response {
-  if (e instanceof GeminiError && e.reason === 'quota') {
+  if (e instanceof UpstreamError && e.reason === 'quota') {
     if (quotaCode(e) === 'upstream_quota') return fail(429, 'upstream_quota', "Today's free Gemini quota is used up");
     const seconds = Math.max(1, Math.ceil((e.retryAfterMs ?? 30_000) / 1000));
     return fail(429, 'upstream_busy', "Google's free tier is busy; try again shortly", { 'retry-after': String(seconds) });
@@ -58,7 +60,9 @@ async function guard<T extends object>(req: Request, d: Deps, kind: LimitKind, v
     return fail(403, 'origin', 'This API only serves the Filings Lens site');
   }
   if (isRestrictedCountry(countryOf(req))) return fail(403, 'restricted_region', "The built-in key isn't available in your region");
-  if (!d.env.geminiKey) return fail(503, 'missing_key', 'The built-in key is not configured');
+  // Query embeddings go through OpenRouter, answers through Gemini: each endpoint needs only its own key.
+  const key = kind === 'embed' ? d.env.openrouterKey : d.env.geminiKey;
+  if (!key) return fail(503, 'missing_key', 'The built-in key is not configured');
   let raw: unknown;
   try {
     raw = await req.json();
@@ -73,7 +77,7 @@ async function guard<T extends object>(req: Request, d: Deps, kind: LimitKind, v
   const limited = await checkLimits(d.store, visitor, kind, d.env.limits, now);
   if (limited === 'visitor_cap') return fail(429, 'visitor_cap', 'Daily question limit reached for this visitor');
   if (limited === 'global_budget') return fail(429, 'global_budget', "Today's free answers are used up");
-  return { body, key: d.env.geminiKey };
+  return { body, key };
 }
 
 const isQuestion = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0 && v.trim().length <= MAX_QUESTION_CHARS;
@@ -141,7 +145,7 @@ export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
         for (let r: IteratorResult<string> = first; !r.done; r = await iterator.next()) controller.enqueue(event({ type: 'delta', text: r.value }));
         controller.enqueue(event({ type: 'done' }));
       } catch (e) {
-        const code: ApiErrorCode = e instanceof GeminiError && e.reason === 'quota' ? quotaCode(e) : 'upstream_error';
+        const code: ApiErrorCode = e instanceof UpstreamError && e.reason === 'quota' ? quotaCode(e) : 'upstream_error';
         controller.enqueue(event({ type: 'error', code }));
       }
       controller.close();

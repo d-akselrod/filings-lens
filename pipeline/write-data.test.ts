@@ -19,7 +19,7 @@ const vectors = () => new Map(fixtureCorpus().chunks.map(c => [c.key, basisVecto
 
 test('written data files load back into a working search engine', async () => {
   const manifest = await writeDataFiles(fixtureCorpus(), vectors(), { publicDir: dir });
-  expect(manifest).toMatchObject({ schemaVersion: 1, chunkCount: 6, dims: 768, vectorEncoding: 'f16le', embeddingModel: 'gemini-embedding-2' });
+  expect(manifest).toMatchObject({ schemaVersion: 1, chunkCount: 6, dims: 768, vectorEncoding: 'f16le', embeddingModel: 'nvidia/nemotron-3-embed-1b:free' });
   expect(manifest.corpus.file).toMatch(/^v\/corpus\.[0-9a-f]{8}\.json$/);
   expect(manifest.vectors).toMatchObject({ bytes: 6 * 1536 });
   expect(manifest.vectors.file).toMatch(/^v\/vectors\.[0-9a-f]{8}\.f16$/);

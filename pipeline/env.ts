@@ -1,7 +1,7 @@
 let loaded = false;
 
 /** Reads a secret from the environment, loading the git-ignored .env.local once. Never prints the value. */
-export function requireEnv(name: 'GEMINI_API_KEY' | 'SEC_USER_AGENT'): string {
+export function requireEnv(name: 'GEMINI_API_KEY' | 'OPENROUTER_API_KEY' | 'SEC_USER_AGENT'): string {
   if (!loaded) {
     loaded = true;
     try {

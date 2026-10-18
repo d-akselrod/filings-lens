@@ -1,7 +1,10 @@
 import type { LimitConfig } from './limits.js';
 
 export interface ServerEnv {
+  /** Gemini, for answers. */
   geminiKey: string | null;
+  /** OpenRouter, for query embeddings. */
+  openrouterKey: string | null;
   allowedOrigins: string[];
   limits: LimitConfig;
   ipSalt: string;
@@ -19,6 +22,7 @@ export function readEnv(e: Record<string, string | undefined>): ServerEnv {
   const token = e.UPSTASH_REDIS_REST_TOKEN ?? e.KV_REST_API_TOKEN;
   return {
     geminiKey: e.GEMINI_API_KEY?.trim() || null,
+    openrouterKey: e.OPENROUTER_API_KEY?.trim() || null,
     allowedOrigins: (e.ALLOWED_ORIGINS ?? '').split(',').map(s => s.trim()).filter(Boolean),
     limits: {
       visitorDailyRequests: positiveInt(e.VISITOR_DAILY_REQUESTS, 50),

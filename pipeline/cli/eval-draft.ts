@@ -3,7 +3,8 @@
  * Output: data/eval/candidates.jsonl, for the owner to review into data/eval/questions.jsonl.
  */
 import { appendFile, mkdir } from 'node:fs/promises';
-import { GeminiError, generateText } from '../../src/core/gemini';
+import { generateText } from '../../src/core/gemini';
+import { UpstreamError } from '../../src/core/upstream';
 import { COMPANIES } from '../companies';
 import { requireEnv } from '../env';
 import { parseDraftReply, pickStratified, readJsonl } from '../eval';
@@ -38,7 +39,7 @@ for (const [i, chunk] of picks.entries()) {
       reply = await generateText(apiKey, { model: MODEL, system: SYSTEM, user, thinkingLevel: 'minimal' });
       break;
     } catch (e) {
-      if (!(e instanceof GeminiError) || e.reason !== 'quota') throw e;
+      if (!(e instanceof UpstreamError) || e.reason !== 'quota') throw e;
       if (attempt >= 5) {
         console.error(`\nFree-tier quota exhausted after ${written} new candidates; rerun later to continue.`);
         process.exit(2);

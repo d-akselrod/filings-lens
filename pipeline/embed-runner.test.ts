@@ -2,7 +2,7 @@ import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, beforeEach, expect, test } from 'vitest';
-import { GeminiError } from '../src/core/gemini';
+import { UpstreamError } from '../src/core/upstream';
 import { embedWithCache, QuotaExhaustedError } from './embed-runner';
 
 let dir: string;
@@ -15,9 +15,9 @@ afterEach(async () => {
 
 const items = (n: number) => Array.from({ length: n }, (_, i) => ({ key: `k${i}`, text: `chunk text number ${i}` }));
 const vectorFor = (text: string) => new Float32Array(768).fill(text.length);
-const quota = () => new GeminiError(429, 'quota', 'Resource has been exhausted', 41000);
+const quota = () => new UpstreamError(429, 'quota', 'Resource has been exhausted', 41000);
 
-function fakeEmbed(script: Array<'ok' | GeminiError> = []) {
+function fakeEmbed(script: Array<'ok' | UpstreamError> = []) {
   const batches: string[][] = [];
   const embed = async (_key: string, texts: string[]) => {
     const step = script.shift() ?? 'ok';
@@ -73,8 +73,8 @@ test('stops after six consecutive quota errors, keeps finished batches, and resu
 });
 
 test('retries server and network errors three times after 5, 10 and 20 seconds', async () => {
-  const server = () => new GeminiError(503, 'server', 'unavailable');
-  const recovering = fakeEmbed([server(), new GeminiError(0, 'network', 'fetch failed'), 'ok']);
+  const server = () => new UpstreamError(503, 'server', 'unavailable');
+  const recovering = fakeEmbed([server(), new UpstreamError(0, 'network', 'fetch failed'), 'ok']);
   const s = fakeSleep();
   await embedWithCache(items(2), { apiKey: 'k', cacheDir: dir, embed: recovering.embed, sleep: s.sleep });
   expect(s.sleeps).toEqual([5000, 10000]);
@@ -86,14 +86,14 @@ test('retries server and network errors three times after 5, 10 and 20 seconds',
 });
 
 test('auth errors are not retried', async () => {
-  const f = fakeEmbed([new GeminiError(403, 'auth', 'Your API key was reported as leaked.')]);
+  const f = fakeEmbed([new UpstreamError(403, 'auth', 'Your API key was reported as leaked.')]);
   const s = fakeSleep();
   await expect(embedWithCache(items(1), { apiKey: 'k', cacheDir: dir, embed: f.embed, sleep: s.sleep })).rejects.toMatchObject({ reason: 'auth' });
   expect(s.sleeps).toEqual([]);
 });
 
 test('reports every retry with its reason, wait and message', async () => {
-  const f = fakeEmbed([quota(), new GeminiError(503, 'server', 'unavailable'), 'ok']);
+  const f = fakeEmbed([quota(), new UpstreamError(503, 'server', 'unavailable'), 'ok']);
   const retries: Array<[string, number, string]> = [];
   await embedWithCache(items(1), {
     apiKey: 'k', cacheDir: dir, embed: f.embed, sleep: fakeSleep().sleep,
@@ -115,7 +115,7 @@ test('paces batch starts at least paceMs apart', async () => {
 });
 
 test('a daily quota stops at once instead of backing off', async () => {
-  const daily = new GeminiError(429, 'quota', 'Resource has been exhausted', 81478000, 'EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier');
+  const daily = new UpstreamError(429, 'quota', 'Resource has been exhausted', 81478000, 'EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier');
   const f = fakeEmbed(['ok', daily]);
   const s = fakeSleep();
   const error = await embedWithCache(items(50), { apiKey: 'k', cacheDir: dir, batchSize: 25, embed: f.embed, sleep: s.sleep }).catch(e => e);
@@ -123,4 +123,12 @@ test('a daily quota stops at once instead of backing off', async () => {
   expect(String(error.message)).toMatch(/daily/i);
   expect(s.sleeps).toEqual([]);
   expect((await readdir(dir)).filter(name => name.endsWith('.f32'))).toHaveLength(25);
+});
+
+test("OpenRouter's daily free-model cap also stops at once", async () => {
+  const daily = new UpstreamError(429, 'quota', 'Rate limit exceeded: free-models-per-day', 6 * 3_600_000, 'free-models-per-day');
+  const s = fakeSleep();
+  const error = await embedWithCache(items(10), { apiKey: 'k', cacheDir: dir, batchSize: 5, embed: fakeEmbed([daily]).embed, sleep: s.sleep }).catch(e => e);
+  expect(error).toBeInstanceOf(QuotaExhaustedError);
+  expect(s.sleeps).toEqual([]);
 });

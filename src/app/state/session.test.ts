@@ -51,7 +51,7 @@ test('ask embeds the question, searches with its vector, and streams a cited ans
   const { session, embed, search, stream } = setup();
   await session.getState().ask('  Q  ');
   expect(embed).toHaveBeenCalledOnce();
-  expect(embed.mock.calls[0]).toEqual(['Q', { kind: 'builtin' }]);
+  expect(embed.mock.calls[0]).toEqual(['Q']);
   expect(search.mock.calls[0]![0]).toEqual({ text: 'Q', vector: new Float32Array(768).fill(0.5) });
   const request = stream.mock.calls[0]![0];
   expect(request).toMatchObject({ question: 'Q', chunkIds: [0, 1, 2, 3, 4, 5, 6, 7], model: 'fast', corpus: CORPUS, src: { kind: 'builtin' } });
@@ -133,8 +133,8 @@ test('a restricted region: the key becomes restricted, search runs without a vec
   expect(stream).not.toHaveBeenCalled();
 });
 
-test('a used-up embedding quota only costs the vector: search runs keyword-only and the answer still streams', async () => {
-  for (const code of ['upstream_quota', 'global_budget'] as const) {
+test('a used-up or unconfigured embedding service only costs the vector: search runs keyword-only and the answer still streams', async () => {
+  for (const code of ['upstream_quota', 'global_budget', 'upstream_busy', 'missing_key'] as const) {
     const { session, search, stream, keys } = setup({ embed: async () => { throw new ClientError(code, 'quota'); } });
     await session.getState().ask('Q');
     expect(keys.builtin).toBe('available');
@@ -148,19 +148,35 @@ test('a used-up embedding quota only costs the vector: search runs keyword-only 
   expect(capped.stream).not.toHaveBeenCalled();
 });
 
-test('with no usable key, nothing is embedded and the answer is skipped as no_key', async () => {
-  const { session, embed, stream } = setup({ keys: fakeKeys('missing') });
-  await session.getState().ask('Q');
-  expect(embed).not.toHaveBeenCalled();
-  expect(stream).not.toHaveBeenCalled();
-  expect(last(session)).toMatchObject({ vector: null, vectorSource: 'none', answer: { status: 'skipped', error: 'no_key' } });
+test('without an answer key the question is still embedded for search, and the answer is skipped as no_key', async () => {
+  for (const builtin of ['missing', 'exhausted'] as const) {
+    const { session, embed, stream } = setup({ keys: fakeKeys(builtin) });
+    await session.getState().ask('Q');
+    expect(embed).toHaveBeenCalledOnce();
+    expect(stream).not.toHaveBeenCalled();
+    expect(last(session)).toMatchObject({ vectorSource: 'api', answer: { status: 'skipped', error: 'no_key' } });
+  }
 });
 
-test('your own key is used for both calls when set', async () => {
-  const { session, embed, stream } = setup({ keys: fakeKeys('restricted', 'my-key-0123456789abcdef') });
+test('in a restricted region nothing is embedded: search is keyword-only and the answer is skipped', async () => {
+  const { session, embed, search, stream } = setup({ keys: fakeKeys('restricted') });
   await session.getState().ask('Q');
-  expect(embed.mock.calls[0]![1]).toEqual({ kind: 'byok', key: 'my-key-0123456789abcdef' });
-  expect(stream.mock.calls[0]![0].src).toEqual({ kind: 'byok', key: 'my-key-0123456789abcdef' });
+  expect(embed).not.toHaveBeenCalled();
+  expect(search.mock.calls[0]![0]).toEqual({ text: 'Q', vector: null });
+  expect(stream).not.toHaveBeenCalled();
+  expect(last(session)).toMatchObject({ vectorSource: 'none', answer: { status: 'skipped', error: 'restricted_region' } });
+});
+
+test('your own key answers; the question is embedded by the site unless the region is restricted', async () => {
+  const own = { kind: 'byok', key: 'my-key-0123456789abcdef' } as const;
+  const usual = setup({ keys: fakeKeys('available', own.key) });
+  await usual.session.getState().ask('Q');
+  expect(usual.embed.mock.calls[0]).toEqual(['Q']);
+  expect(usual.stream.mock.calls[0]![0].src).toEqual(own);
+  const restricted = setup({ keys: fakeKeys('restricted', own.key) });
+  await restricted.session.getState().ask('Q');
+  expect(restricted.embed).not.toHaveBeenCalled();
+  expect(restricted.stream.mock.calls[0]![0].src).toEqual(own);
 });
 
 test('a sample question uses its precomputed vector and never calls embed', async () => {

@@ -1,11 +1,11 @@
 /**
- * npm run ingest [-- --parse-only] [--partial] [--batch 25] [--pace 16000]
+ * npm run ingest [-- --parse-only] [--partial] [--batch 128] [--pace 3500]
  * --partial: when the daily quota stops embedding, still write data files for the filings that are fully embedded (dev use).
- * EDGAR → 10-K Items → chunks → gemini-embedding-2 → public/data/. Resumable: rerun after a quota stop.
+ * EDGAR → 10-K Items → chunks → Nemotron 3 Embed (OpenRouter) → public/data/. Resumable: rerun after a quota stop.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
 import { gzipSync } from 'node:zlib';
-import { documentText } from '../../src/core/gemini';
+import { documentText } from '../../src/core/embeddings';
 import type { ChunkRow, CompanyRow, CorpusFile, FilingRow } from '../../src/core/types';
 import { chunkSection } from '../chunk';
 import { COMPANIES } from '../companies';
@@ -20,11 +20,11 @@ import { FIRST_VISIT_BUDGET_BYTES, RUNTIME_ALLOWANCE_BYTES, writeDataFiles } fro
 const parseOnly = process.argv.includes('--parse-only');
 const partial = process.argv.includes('--partial');
 const batchArg = process.argv.indexOf('--batch');
-// Small batches keep each request under free-tier per-minute token limits (a 600-token chunk × 25 ≈ 15K tokens).
-const batchSize = batchArg === -1 ? 25 : Number(process.argv[batchArg + 1]);
+// OpenRouter's free tier counts requests (50 a day), not texts: 128 chunks per request embeds the corpus in ~35.
+const batchSize = batchArg === -1 ? 128 : Number(process.argv[batchArg + 1]);
 const paceArg = process.argv.indexOf('--pace');
-// The free tier allows ~100 embeddings/minute: one batch of 25 every 16 s stays just under it.
-const paceMs = paceArg === -1 ? 16_000 : Number(process.argv[paceArg + 1]);
+// Free models allow 20 requests a minute; one every 3.5 s stays under it.
+const paceMs = paceArg === -1 ? 3_500 : Number(process.argv[paceArg + 1]);
 const edgar = new EdgarClient({ userAgent: requireEnv('SEC_USER_AGENT'), cacheDir: 'data/.cache/edgar' });
 
 const companies: CompanyRow[] = [];
@@ -81,7 +81,7 @@ let vectors: Map<string, Float32Array>;
 let complete = true;
 try {
   vectors = await embedWithCache(queue, {
-    apiKey: requireEnv('GEMINI_API_KEY'),
+    apiKey: requireEnv('OPENROUTER_API_KEY'),
     cacheDir: 'data/.cache/embeddings',
     batchSize,
     paceMs,
