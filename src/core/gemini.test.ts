@@ -98,6 +98,12 @@ test('generateText sends the system instruction and drops thought parts', async 
   });
 });
 
+test('generateText sends a thinking level as generationConfig.thinkingConfig', async () => {
+  const f = fakeFetch(json({ candidates: [{ content: { role: 'model', parts: [{ text: 'OK' }] } }] }));
+  await generateText('k', { model: 'gemma-4-26b-a4b-it', system: 'SYS', user: 'USER', thinkingLevel: 'minimal' }, { fetch: f.fn });
+  expect(JSON.parse(String(f.calls[0]!.init.body)).generationConfig).toEqual({ thinkingConfig: { thinkingLevel: 'minimal' } });
+});
+
 test('task prefixes for gemini-embedding-2', () => {
   expect(queryText('x')).toBe('task: search result | query: x');
   expect(documentText('T', 'b')).toBe('title: T | text: b');

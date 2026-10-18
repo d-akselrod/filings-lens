@@ -34,7 +34,8 @@ for (const [i, chunk] of picks.entries()) {
   let reply = '';
   for (let attempt = 1; ; attempt++) {
     try {
-      reply = await generateText(apiKey, { model: MODEL, system: SYSTEM, user });
+      // Default thinking took 30–60 s per reply (and once an HTTP 500); 'minimal' answers in ~4 s.
+      reply = await generateText(apiKey, { model: MODEL, system: SYSTEM, user, thinkingLevel: 'minimal' });
       break;
     } catch (e) {
       if (!(e instanceof GeminiError) || e.reason !== 'quota') throw e;
