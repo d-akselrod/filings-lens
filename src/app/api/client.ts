@@ -1,7 +1,7 @@
 import type { ApiErrorCode } from '../../../server/handlers';
 import { ANSWER_MODELS, parseSseLines, streamGenerate, type ModelChoice } from '../../core/gemini';
 import { buildUserPrompt, SYSTEM_INSTRUCTION, type PromptPassage } from '../../core/prompt';
-import { decodeVectorB64 } from '../../core/scorecard';
+import { decodeVectorB64 } from '../../core/vector-b64';
 import { isDailyQuota, UpstreamError } from '../../core/upstream';
 import type { BuiltinStatus } from '../state/keys';
 

@@ -2,8 +2,8 @@ import type { PGlite } from '@electric-sql/pglite';
 import * as Comlink from 'comlink';
 import { SearchEngine } from '../core/engine';
 import { loadCorpus, openDb, type LoadStep } from '../core/load';
-import { decodeVectorB64, runScorecard, type EvalItem } from '../core/scorecard';
 import type { RerankFn } from '../core/types';
+import { decodeVectorB64 } from '../core/vector-b64';
 import { loadData } from './load-data';
 import type { LoadPhase, Sample, WorkerApi } from './protocol';
 import { loadReranker } from './reranker';
@@ -17,7 +17,6 @@ export function createWorkerApi(d: {
   openDb?: () => Promise<PGlite>;
 }): WorkerApi {
   let engine: SearchEngine | null = null;
-  let evalItems: EvalItem[] | null = null;
   let samples: Sample[] = [];
   let rerank: RerankFn | undefined;
   let rerankLoading: Promise<void> | null = null;
@@ -48,16 +47,10 @@ export function createWorkerApi(d: {
       onProgress({ phase: 'vectors' });
       engine = await SearchEngine.open(db);
       const facets = await engine.facets();
-
-      const idByKey = new Map(data.corpus.chunks.map(c => [c.key, c.id]));
-      evalItems = data.evalFile?.questions.map(q => ({
-        id: q.id, question: q.question, vector: decodeVectorB64(q.vector),
-        goldIds: q.goldKeys.flatMap(key => idByKey.get(key) ?? []),
-      })) ?? null;
       samples = data.samplesFile?.samples.map(s => ({ question: s.question, vector: decodeVectorB64(s.vector) })) ?? [];
 
       onProgress({ phase: 'ready' });
-      return { manifest: data.manifest, chunkCount: engine.count, facets, hasEval: evalItems !== null };
+      return { manifest: data.manifest, chunkCount: engine.count, facets };
     },
     async search(q, s) {
       if (!rerank || !s.rerank) return loaded().search(q, s, rerank);
@@ -83,10 +76,6 @@ export function createWorkerApi(d: {
         (e: unknown) => { rerankLoading = null; throw e; },
       );
       return rerankLoading;
-    },
-    async scorecard(s, onProgress) {
-      if (!evalItems) throw new Error('No evaluation set');
-      return runScorecard(loaded(), evalItems, s, rerank, onProgress);
     },
   };
 }

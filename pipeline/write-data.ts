@@ -65,7 +65,6 @@ export async function writeDataFiles(corpus: CorpusFile, vectorsByKey: Map<strin
     chunkCount: corpus.chunks.length,
     corpus: { file: `v/${corpusFile}`, bytes: Buffer.byteLength(corpusJson), gzipBytes },
     vectors: { file: `v/${vectorsFile}`, bytes: vectors.byteLength },
-    ...(previous.eval ? { eval: previous.eval } : {}),
     ...(previous.samples ? { samples: previous.samples } : {}),
   };
   await writeFile(join(o.publicDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

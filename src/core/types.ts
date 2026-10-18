@@ -53,9 +53,11 @@ export interface Manifest {
   /** file is relative to /data/, e.g. "v/corpus.1a2b3c4d.json" */
   corpus: { file: string; bytes: number; gzipBytes: number };
   vectors: { file: string; bytes: number };
-  eval?: { file: string; count: number };
   samples?: { file: string; count: number };
 }
+
+/** Sample questions with precomputed query vectors (base64 float16), so they search without an embedding call. */
+export interface SamplesFile { schemaVersion: 1; samples: Array<{ question: string; vector: string }> }
 
 /** Orders 10-K item codes: 1 < 1A < 1B < 1C < 2 < … < 7 < 7A < 8 < 9 < 9A … */
 export function compareItems(a: string, b: string): number {

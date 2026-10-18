@@ -10,7 +10,6 @@ import type { Sample } from '../../worker/protocol';
 import { MODEL_LABEL } from './AnswerCard';
 import { ByokDialog } from './ByokDialog';
 import { CommandMenu } from './CommandMenu';
-import { ViewSwitch } from './ViewSwitch';
 
 const THEME_ICON = { system: Monitor, light: Sun, dark: Moon } as const;
 
@@ -23,7 +22,7 @@ export function Header({ ready, chunkCount, facets, samples }: { ready: boolean;
 
   return (
     <>
-      {/* Below md the header wraps: brand and model/key/theme on top, search and view switch underneath. */}
+      {/* Below md the header wraps: brand and model/key/theme on top, search underneath. */}
       <div className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-2 whitespace-nowrap md:flex-nowrap">
         <div className="order-1 flex items-center gap-2 text-[14px] font-semibold tracking-tight md:order-none">
           <span className="size-[18px] rounded-md bg-linear-135 from-primary to-acc2 shadow-[inset_0_0_0_1px_rgba(255,255,255,.25)]" aria-hidden />
@@ -48,7 +47,6 @@ export function Header({ ready, chunkCount, facets, samples }: { ready: boolean;
         </IconButton>
         <IconButton className="order-5 md:order-none" label={`Theme: ${pref}`} onClick={cycle}><ThemeIcon /></IconButton>
         <span className="order-6 h-0 basis-full md:hidden" aria-hidden />
-        <ViewSwitch className="order-8 md:order-none" />
       </div>
       <ByokDialog open={byokOpen} onOpenChange={open => setUi({ byokOpen: open })} />
     </>

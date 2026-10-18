@@ -1,7 +1,6 @@
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 
 export interface UiState {
-  view: 'ask' | 'scorecard';
   /** The citation number whose source card is highlighted. */
   highlighted: number | null;
   /** Bumped on every citation click, so clicking the same chip again scrolls to its card again. */
@@ -16,7 +15,6 @@ export interface UiState {
 }
 
 export const useUi: UseBoundStore<StoreApi<UiState>> = create<UiState>()(set => ({
-  view: 'ask',
   highlighted: null,
   highlightNonce: 0,
   evidenceTab: 'sources',

@@ -9,7 +9,7 @@ import { Header } from './Header';
 
 beforeEach(() => {
   localStorage.clear();
-  useUi.setState({ view: 'ask', byokOpen: false });
+  useUi.setState({ byokOpen: false });
   useKeys.setState({ byokKey: null });
 });
 
@@ -25,13 +25,10 @@ test('the status pill shows the passage count once ready', () => {
   expect(screen.getByText('Filings Lens')).toBeInTheDocument();
 });
 
-test('the view switch selects the scorecard', async () => {
-  const user = userEvent.setup();
+test('the header has no Scorecard switch', () => {
   renderHeader();
-  await user.click(screen.getByRole('radio', { name: 'Scorecard' }));
-  expect(useUi.getState().view).toBe('scorecard');
-  await user.click(screen.getByRole('radio', { name: 'Ask' }));
-  expect(useUi.getState().view).toBe('ask');
+  expect(screen.queryByRole('group', { name: 'View' })).toBeNull();
+  expect(screen.queryByText('Scorecard')).toBeNull();
 });
 
 test('the header names the one answer model, Gemma 4 26B, without a model menu', () => {

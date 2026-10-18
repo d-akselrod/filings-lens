@@ -12,7 +12,6 @@ Ask questions about the Magnificent 7's annual reports and see exactly how the a
 - Every sentence cites its passages. Numbers that don't appear in the cited passages are flagged, and sentences without a citation are marked.
 - Every search setting can be changed live: distance metric, vector dimensions, BM25 `k1` and `b`, fusion mode and weights, reranking, filters. Changing one re-runs the search instantly in your browser, with no API call, and marks the old answer stale.
 - The Sources tab shows every stage's score for each passage (BM25 rank, vector rank and distance, fused score, rerank score). The Trace tab shows the full ranking table and how far reranking moved each result.
-- A Scorecard measures retrieval quality (Recall@5/10, MRR@10, nDCG@10) on reviewed test questions, for your settings and four baselines, entirely in the browser.
 
 ## Architecture
 
@@ -49,10 +48,6 @@ VERCEL FUNCTIONS (the built-in key never reaches the browser)
 
 The embedding model's vectors are normalized to length 1. For unit vectors, Euclidean distance is a function of cosine similarity (‖a − b‖² = 2 − 2·cos θ), and the dot product *is* the cosine. So all three metrics put results in the same order; only the scores differ. Shorten the vectors with the Dimensions slider and turn off Re-normalize, and the vectors are no longer unit length, so the three metrics finally disagree.
 
-## Scorecard
-
-Pending: the reviewed test set is built after the full corpus is embedded (an LLM drafts about 80 candidate questions; the owner keeps and edits about 40). The table from a local Scorecard run goes here. If hybrid + rerank doesn't beat vector-only, this section will say so plainly. That's a finding, not a failure.
-
 ## Cost: $0
 
 - OpenRouter free tier: NVIDIA Nemotron 3 Embed 1B (`nvidia/nemotron-3-embed-1b:free`) for embeddings. Its free tier counts requests (50 a day) rather than texts, so the whole corpus embeds in one run of about 35 batched requests.
@@ -71,7 +66,7 @@ Requires Node 24 or later.
 npm install
 cp .env.example .env.local   # then set GEMINI_API_KEY, OPENROUTER_API_KEY and SEC_USER_AGENT ("Your Name you@example.com")
 npm run ingest               # fetch, parse, chunk and embed the 4,443 passages (~35 free OpenRouter requests)
-npm run eval:finalize        # embed the sample questions (and the reviewed test set, once data/eval/questions.jsonl exists)
+npm run samples              # embed the sample questions in data/samples.jsonl (at most one free OpenRouter request)
 npm run dev:api              # local stand-in for the Vercel functions on :8787 (DEV_COUNTRY=DE simulates a restricted visitor)
 npm run dev                  # the app on :5173, proxying /api to :8787
 ```
@@ -88,8 +83,8 @@ npm run dev                  # the app on :5173, proxying /api to :8787
 
 ## Limitations
 
-- **Free tier.** Answers use Google's Gemini free tier; question embeddings use OpenRouter's free tier, which allows 50 requests a day across the site. Once those run out for the day, typed questions search by keyword only (answers still work), and sample questions keep full hybrid search because their vectors are precomputed. When the answer key runs out, search, the sample questions and the Scorecard keep working, and you can add your own free Gemini key, which stays in your browser and goes only to Google.
-- **Regional rule.** The built-in key is never used for visitors in the EEA, the UK or Switzerland (an unknown country counts as restricted). Those visitors can still search (keyword search plus rerank), run the sample questions with full hybrid search, use the Scorecard, or bring their own key.
+- **Free tier.** Answers use Google's Gemini free tier; question embeddings use OpenRouter's free tier, which allows 50 requests a day across the site. Once those run out for the day, typed questions search by keyword only (answers still work), and sample questions keep full hybrid search because their vectors are precomputed. When the answer key runs out, search and the sample questions keep working, and you can add your own free Gemini key, which stays in your browser and goes only to Google.
+- **Regional rule.** The built-in key is never used for visitors in the EEA, the UK or Switzerland (an unknown country counts as restricted). Those visitors can still search (keyword search plus rerank), run the sample questions with full hybrid search, or bring their own key.
 - **Questions go to Google and NVIDIA.** Free endpoints may keep requests to improve their models. Don't enter personal information.
 - **Speed.** The database and reranker run on your device; on low-end phones the first load and reranking are slower. Reranking can be turned off.
 - **Citations are checked, not guaranteed.** The number check catches figures that don't appear in the cited passages; it can't judge whether a sentence's reasoning is right.

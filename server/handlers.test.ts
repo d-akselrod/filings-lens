@@ -1,7 +1,7 @@
 import { describe, expect, test, vi } from 'vitest';
 import type { StreamRequest } from '../src/core/gemini';
 import { UpstreamError } from '../src/core/upstream';
-import { decodeVectorB64 } from '../src/core/scorecard';
+import { decodeVectorB64 } from '../src/core/vector-b64';
 import type { CorpusLookup } from './corpus';
 import type { ServerEnv } from './env';
 import { handleAnswer, handleEmbed, handleStatus, type Deps } from './handlers';

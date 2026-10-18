@@ -2,24 +2,18 @@
 import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeEvalFiles } from '../../pipeline/eval';
+import { writeSamplesFile } from '../../pipeline/samples';
 import { writeDataFiles } from '../../pipeline/write-data';
-import { encodeVectorB64 } from '../core/scorecard';
 import { basisVector, fixtureCorpus } from '../core/test-fixtures';
+import { encodeVectorB64 } from '../core/vector-b64';
 
-/** The 6-chunk fixture corpus (chunk i has vector e_i); with eval, one question whose gold passage is chunk 0. */
-export async function writeFixtureData(o: { withEval: boolean }): Promise<string> {
+/** The 6-chunk fixture corpus (chunk i has vector e_i); with samples, one sample question whose vector is e_0. */
+export async function writeFixtureData(o: { withSamples: boolean }): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'fl-data-'));
   const corpus = fixtureCorpus();
   await writeDataFiles(corpus, new Map(corpus.chunks.map(c => [c.key, basisVector(c.id)])), { publicDir: dir });
-  if (o.withEval) {
-    await writeEvalFiles(dir, {
-      schemaVersion: 1,
-      questions: [{
-        id: 'q01', question: 'export controls China', goldKeys: [corpus.chunks[0]!.key], ticker: 'NVDA', item: '1A', style: 'risk',
-        vector: encodeVectorB64(basisVector(0)),
-      }],
-    }, { schemaVersion: 1, samples: [{ question: 'How does NVIDIA describe export controls?', vector: encodeVectorB64(basisVector(0)) }] });
+  if (o.withSamples) {
+    await writeSamplesFile(dir, { schemaVersion: 1, samples: [{ question: 'How does NVIDIA describe export controls?', vector: encodeVectorB64(basisVector(0)) }] });
   }
   return dir;
 }

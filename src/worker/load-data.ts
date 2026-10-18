@@ -1,5 +1,4 @@
-import type { EvalFile, SamplesFile } from '../core/scorecard';
-import type { CorpusFile, Manifest } from '../core/types';
+import type { CorpusFile, Manifest, SamplesFile } from '../core/types';
 import type { LoadProgress } from './protocol';
 
 /** Reads a response body chunk by chunk; `loaded` counts decoded bytes, so it matches the manifest sizes under compression. */
@@ -30,7 +29,7 @@ async function fetchJson<T>(url: string, f: typeof fetch): Promise<T> {
 }
 
 export async function loadData(baseUrl: string, onProgress: (p: LoadProgress) => void, f: typeof fetch = fetch): Promise<{
-  manifest: Manifest; corpus: CorpusFile; vectors: Uint8Array; evalFile: EvalFile | null; samplesFile: SamplesFile | null;
+  manifest: Manifest; corpus: CorpusFile; vectors: Uint8Array; samplesFile: SamplesFile | null;
 }> {
   onProgress({ phase: 'manifest' });
   const res = await f(`${baseUrl}/manifest.json`, { cache: 'no-cache' });
@@ -56,9 +55,6 @@ export async function loadData(baseUrl: string, onProgress: (p: LoadProgress) =>
   ]);
   const corpus = JSON.parse(new TextDecoder().decode(corpusRaw)) as CorpusFile;
 
-  const [evalFile, samplesFile] = await Promise.all([
-    manifest.eval ? fetchJson<EvalFile>(`${baseUrl}/${manifest.eval.file}`, f) : null,
-    manifest.samples ? fetchJson<SamplesFile>(`${baseUrl}/${manifest.samples.file}`, f) : null,
-  ]);
-  return { manifest, corpus, vectors, evalFile, samplesFile };
+  const samplesFile = manifest.samples ? await fetchJson<SamplesFile>(`${baseUrl}/${manifest.samples.file}`, f) : null;
+  return { manifest, corpus, vectors, samplesFile };
 }

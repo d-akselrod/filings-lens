@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { buildUserPrompt, SYSTEM_INSTRUCTION, type PromptPassage } from '../../core/prompt';
-import { encodeVectorB64 } from '../../core/scorecard';
+import { encodeVectorB64 } from '../../core/vector-b64';
 import { builtinStatusFor, ClientError, embedQuestion, fetchStatus, streamAnswer, type ClientErrorCode, type KeySource } from './client';
 
 function fakeFetch(...responses: Array<Response | Error>) {

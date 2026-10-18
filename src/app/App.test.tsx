@@ -12,7 +12,6 @@ const init: InitResult = {
   },
   chunkCount: 3812,
   facets: { tickers: ['NVDA'], fiscalYears: [2025], items: [{ item: '1A', title: 'Risk Factors' }] },
-  hasEval: false,
 };
 
 vi.mock('@/engine', () => ({

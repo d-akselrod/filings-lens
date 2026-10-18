@@ -54,7 +54,6 @@ export function CommandMenu({ facets, samples, className }: { facets: Facets | n
             <CommandGroup heading="Sample questions">
               {samples.map(s => (
                 <CommandItem key={s.question} value={s.question} onSelect={run(() => {
-                  useUi.getState().set({ view: 'ask' });
                   void useSession.getState().ask(s.question, { sampleVector: s.vector });
                 })}>
                   <MessageSquareText aria-hidden />{s.question}

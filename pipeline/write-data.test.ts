@@ -28,18 +28,18 @@ test('written data files load back into a working search engine', async () => {
   expect(r.results[0]!.chunkId).toBe(4);
 });
 
-test('replaces stale hashed files and keeps eval and samples entries in the manifest', async () => {
+test('replaces stale hashed files and keeps the samples entry in the manifest', async () => {
   await mkdir(join(dir, 'v'), { recursive: true });
   await writeFile(join(dir, 'v', 'corpus.deadbeef.json'), '{}');
   await writeFile(join(dir, 'v', 'vectors.deadbeef.f16'), '');
-  await writeFile(join(dir, 'v', 'eval.cafef00d.json'), '{}');
-  await writeFile(join(dir, 'manifest.json'), JSON.stringify({ eval: { file: 'v/eval.cafef00d.json', count: 40 } }));
+  await writeFile(join(dir, 'v', 'samples.cafef00d.json'), '{}');
+  await writeFile(join(dir, 'manifest.json'), JSON.stringify({ samples: { file: 'v/samples.cafef00d.json', count: 6 } }));
   const manifest = await writeDataFiles(fixtureCorpus(), vectors(), { publicDir: dir });
   const files = await readdir(join(dir, 'v'));
   expect(files).not.toContain('corpus.deadbeef.json');
   expect(files).not.toContain('vectors.deadbeef.f16');
-  expect(files).toContain('eval.cafef00d.json');
-  expect(manifest.eval).toEqual({ file: 'v/eval.cafef00d.json', count: 40 });
+  expect(files).toContain('samples.cafef00d.json');
+  expect(manifest.samples).toEqual({ file: 'v/samples.cafef00d.json', count: 6 });
   const onDisk = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8')) as Manifest;
   expect(onDisk).toEqual(manifest);
 });

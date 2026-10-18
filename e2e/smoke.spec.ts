@@ -8,8 +8,8 @@ const ANSWER_SSE = 'data: {"type":"delta","text":"NVIDIA says export rules requi
 const UNIT_VECTOR_B64 = Buffer.from(new Uint16Array(768).fill(0x2c9f).buffer).toString('base64');
 
 /**
- * The API is mocked. The sample-question file is injected so the smoke test doesn't depend on the reviewed
- * evaluation set having been published; everything else is the real built app and the real data.
+ * The API is mocked. A one-question sample file is injected so the smoke test doesn't depend on which sample
+ * questions are published; everything else is the real built app and the real data.
  */
 async function mock(page: Page, builtInKey: 'available' | 'restricted') {
   const calls = { embed: 0, answer: 0 };

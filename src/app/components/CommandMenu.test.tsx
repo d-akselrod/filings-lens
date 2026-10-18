@@ -17,7 +17,7 @@ const sample = { question: 'How does NVIDIA describe export controls?', vector: 
 
 beforeEach(() => {
   useSettings.getState().reset();
-  useUi.setState({ view: 'scorecard', byokOpen: false });
+  useUi.setState({ byokOpen: false });
 });
 
 const renderMenu = () => render(<TooltipProvider><CommandMenu facets={facets} samples={[sample]} /></TooltipProvider>);
@@ -52,7 +52,6 @@ test('a sample question is asked with its precomputed vector; actions open the k
   await user.keyboard('{Control>}k{/Control}');
   await user.click(await screen.findByRole('option', { name: sample.question }));
   expect(ask).toHaveBeenCalledWith(sample.question, { sampleVector: sample.vector });
-  expect(useUi.getState().view).toBe('ask');
   await user.keyboard('{Control>}k{/Control}');
   await user.click(await screen.findByRole('option', { name: 'Use my own key' }));
   expect(useUi.getState().byokOpen).toBe(true);

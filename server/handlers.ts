@@ -2,7 +2,7 @@ import { queryText } from '../src/core/embeddings.js';
 import { ANSWER_MODELS, type ModelChoice, type StreamRequest } from '../src/core/gemini.js';
 import { buildUserPrompt, MAX_PASSAGES, MAX_QUESTION_CHARS, SYSTEM_INSTRUCTION, type PromptPassage } from '../src/core/prompt.js';
 import { isRestrictedCountry } from '../src/core/region.js';
-import { encodeVectorB64 } from '../src/core/scorecard.js';
+import { encodeVectorB64 } from '../src/core/vector-b64.js';
 import { isDailyQuota, UpstreamError } from '../src/core/upstream.js';
 import type { CorpusLookup } from './corpus.js';
 import type { ServerEnv } from './env.js';

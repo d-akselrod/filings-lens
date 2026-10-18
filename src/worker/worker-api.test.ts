@@ -14,7 +14,7 @@ let init: InitResult;
 const progress: LoadProgress[] = [];
 
 beforeAll(async () => {
-  const dir = await writeFixtureData({ withEval: true });
+  const dir = await writeFixtureData({ withSamples: true });
   dirs.push(dir);
   api = createWorkerApi({ baseUrl: '/data', fetch: dirFetch(dir, '/data').fn });
   init = await api.init(p => progress.push(p));
@@ -23,13 +23,13 @@ afterAll(async () => {
   for (const dir of dirs) await rm(dir, { recursive: true, force: true });
 });
 
-test('init reports each phase in order and returns the manifest, chunk count, facets and eval presence', () => {
+test('init reports each phase in order and returns the manifest, chunk count and facets', () => {
   const phases = progress.map(p => p.phase).filter((p, i, all) => p !== all[i - 1]);
   expect(phases).toEqual(['manifest', 'download', 'database', 'keyword-index', 'vectors', 'ready']);
   const loaded = progress.filter(p => p.phase === 'download').map(p => p.loadedBytes!);
   expect(loaded).toEqual([...loaded].sort((a, b) => a - b));
   expect(loaded.at(-1)).toBe(init.manifest.corpus.bytes + init.manifest.vectors.bytes);
-  expect(init).toMatchObject({ chunkCount: 6, hasEval: true, facets: { tickers: ['NVDA', 'AAPL'], fiscalYears: [2025, 2024] } });
+  expect(init).toMatchObject({ chunkCount: 6, facets: { tickers: ['NVDA', 'AAPL'], fiscalYears: [2025, 2024] } });
 });
 
 test('search runs hybrid search and notes that no reranker is loaded yet', async () => {
@@ -49,16 +49,8 @@ test('samples are decoded to 768-length vectors', async () => {
   expect(samples[0]!.vector[0]).toBe(1);
 });
 
-test('scorecard maps gold keys to chunk ids and scores the current settings and each baseline', async () => {
-  const ticks: number[] = [];
-  const r = await api.scorecard({ ...DEFAULT_SETTINGS, rerank: false }, done => ticks.push(done));
-  expect(r.rows.map(row => row.name)).toEqual(['current', 'vector', 'keyword', 'hybrid']);
-  expect(r.rows.find(row => row.name === 'vector')!.recall5).toBe(1);
-  expect(ticks.at(-1)).toBe(4);
-});
-
-test('without an eval set, scorecard rejects; a loaded reranker reorders the head of the results', async () => {
-  const dir = await writeFixtureData({ withEval: false });
+test('without a samples file there are no samples; a loaded reranker reorders the head of the results', async () => {
+  const dir = await writeFixtureData({ withSamples: false });
   dirs.push(dir);
   let loads = 0;
   const bare = createWorkerApi({
@@ -69,9 +61,8 @@ test('without an eval set, scorecard rejects; a loaded reranker reorders the hea
       return async (_query, passages) => passages.map(p => (p.includes('iPhone') ? 1 : 0));
     },
   });
-  expect(await bare.init(() => {})).toMatchObject({ hasEval: false });
+  await bare.init(() => {});
   expect(await bare.samples()).toEqual([]);
-  await expect(bare.scorecard(DEFAULT_SETTINGS, () => {})).rejects.toThrow('No evaluation set');
 
   await Promise.all([bare.loadReranker(() => {}), bare.loadReranker(() => {})]);
   expect(loads).toBe(1);
@@ -81,7 +72,7 @@ test('without an eval set, scorecard rejects; a loaded reranker reorders the hea
 }, 30_000);
 
 test('init starts opening the database before the data downloads finish', async () => {
-  const dir = await writeFixtureData({ withEval: false });
+  const dir = await writeFixtureData({ withSamples: false });
   dirs.push(dir);
   const files = dirFetch(dir, '/data');
   const events: string[] = [];
@@ -111,7 +102,7 @@ test('a failed download closes the database it had started opening', async () =>
 });
 
 test('a reranker that fails mid-search falls back to the fused order, and is not used again (review I1)', async () => {
-  const dir = await writeFixtureData({ withEval: false });
+  const dir = await writeFixtureData({ withSamples: false });
   dirs.push(dir);
   let calls = 0;
   const failing = createWorkerApi({

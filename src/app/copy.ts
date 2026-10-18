@@ -2,7 +2,7 @@ import type { ClientErrorCode } from './api/client';
 
 export const COPY = {
   footer: "Not financial advice. Questions are processed by free AI services (Google Gemini, and NVIDIA via OpenRouter) — don't enter personal information. Data: SEC EDGAR.",
-  restricted: "Answers with our built-in key aren't available in your region (EEA, UK and Switzerland). You can still search, try the sample questions, run the scorecard, or use your own Gemini key.",
+  restricted: "Answers with our built-in key aren't available in your region (EEA, UK and Switzerland). You can still search, try the sample questions, or use your own Gemini key.",
   exhausted: "Today's free answers are used up. Search still works — add your own free Gemini key to keep getting answers.",
   missing: 'Answers are temporarily unavailable. Search still works — or use your own Gemini key.',
   keywordOnly: 'No question embedding is available, so this search is keyword-only. Sample questions still use full hybrid search.',

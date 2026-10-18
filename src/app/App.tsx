@@ -6,7 +6,6 @@ import { EvidencePanel } from './components/EvidencePanel';
 import { Footer } from './components/Footer';
 import { Header } from './components/Header';
 import { LoadingScreen } from './components/LoadingScreen';
-import { ScorecardView } from './components/ScorecardView';
 import { SettingsPanel } from './components/SettingsPanel';
 import { AppShell } from './layout/AppShell';
 import { useSession } from './state/session';
@@ -28,7 +27,6 @@ export function App() {
   const init = useBoot(s => s.init);
   const samples = useBoot(s => s.samples);
   const reranker = useBoot(s => s.reranker);
-  const view = useUi(s => s.view);
   const evidenceOpen = useUi(s => s.evidenceOpen);
 
   useEffect(() => boot(), []);
@@ -48,11 +46,7 @@ export function App() {
     };
   }, []);
 
-  const main = !init
-    ? <BootProgress />
-    : view === 'ask'
-      ? <AnswerColumn samples={samples} />
-      : <ScorecardView evalCount={init.hasEval ? init.manifest.eval?.count ?? null : null} rerankerReady={reranker.state === 'ready'} />;
+  const main = init ? <AnswerColumn samples={samples} /> : <BootProgress />;
 
   return (
     <AppShell
