@@ -31,7 +31,14 @@ export function boot(): void {
     setCorpusVersion(init.manifest.corpus.file);
     useBoot.setState({ init, reranker: { state: 'loading' } });
     useBoot.setState({ samples: await engine.samples() });
-    await engine.loadReranker(proxy((loaded: number, total: number) => useBoot.setState({ reranker: { state: 'loading', loaded, total } })));
+    let reportedPercent = -1;
+    await engine.loadReranker(proxy((loaded: number, total: number) => {
+      // The model arrives in hundreds of small chunks; one update per percent keeps the UI responsive.
+      const percent = total > 0 ? Math.floor((loaded / total) * 100) : 0;
+      if (percent === reportedPercent) return;
+      reportedPercent = percent;
+      useBoot.setState({ reranker: { state: 'loading', loaded, total } });
+    }));
     useBoot.setState({ reranker: { state: 'ready' } });
   }).catch(() => {
     if (useBoot.getState().init) useBoot.setState({ reranker: { state: 'error' } });

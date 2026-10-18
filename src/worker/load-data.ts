@@ -40,7 +40,15 @@ export async function loadData(baseUrl: string, onProgress: (p: LoadProgress) =>
   const totalBytes = manifest.corpus.bytes + manifest.vectors.bytes;
   let corpusBytes = 0;
   let vectorBytes = 0;
-  const report = () => onProgress({ phase: 'download', loadedBytes: corpusBytes + vectorBytes, totalBytes });
+  let reportedPercent = -1;
+  // Network chunks are tens of KB, so per-chunk updates would mean hundreds of UI renders; one per percent is enough.
+  const report = () => {
+    const loadedBytes = corpusBytes + vectorBytes;
+    const percent = totalBytes > 0 ? Math.floor((loadedBytes / totalBytes) * 100) : 100;
+    if (percent === reportedPercent) return;
+    reportedPercent = percent;
+    onProgress({ phase: 'download', loadedBytes, totalBytes });
+  };
   report();
   const [corpusRaw, vectors] = await Promise.all([
     fetchWithProgress(`${baseUrl}/${manifest.corpus.file}`, n => { corpusBytes = n; report(); }, f),

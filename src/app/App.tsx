@@ -16,9 +16,18 @@ import { useTheme } from './theme';
 
 const RERUN_DEBOUNCE_MS = 150;
 
+/** Only the loading screen follows download progress, so progress updates don't re-render the whole app. */
+function BootProgress() {
+  const progress = useBoot(s => s.progress);
+  const failed = useBoot(s => s.failed);
+  return <LoadingScreen progress={progress} failed={failed} />;
+}
+
 export function App() {
   useTheme();
-  const { progress, init, failed, samples, reranker } = useBoot();
+  const init = useBoot(s => s.init);
+  const samples = useBoot(s => s.samples);
+  const reranker = useBoot(s => s.reranker);
   const view = useUi(s => s.view);
 
   useEffect(() => boot(), []);
@@ -39,7 +48,7 @@ export function App() {
   }, []);
 
   const main = !init
-    ? <LoadingScreen progress={progress} failed={failed} />
+    ? <BootProgress />
     : view === 'ask'
       ? <AnswerColumn samples={samples} />
       : <ScorecardView evalCount={init.hasEval ? init.manifest.eval?.count ?? null : null} rerankerReady={reranker.state === 'ready'} />;

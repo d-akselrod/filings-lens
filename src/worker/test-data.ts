@@ -24,8 +24,8 @@ export async function writeFixtureData(o: { withEval: boolean }): Promise<string
   return dir;
 }
 
-/** Serves `<baseUrl>/<path>` from dir; anything else is a 404. */
-export function dirFetch(dir: string, baseUrl: string) {
+/** Serves `<baseUrl>/<path>` from dir, each body in `pieces` stream chunks; anything else is a 404. */
+export function dirFetch(dir: string, baseUrl: string, pieces = 3) {
   const calls: Array<{ url: string; init?: RequestInit }> = [];
   const fn = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
@@ -37,7 +37,7 @@ export function dirFetch(dir: string, baseUrl: string) {
     } catch {
       return new Response('not found', { status: 404 });
     }
-    const third = Math.max(1, Math.ceil(bytes.length / 3));
+    const third = Math.max(1, Math.ceil(bytes.length / pieces));
     const body = new ReadableStream<Uint8Array>({
       start(controller) {
         for (let i = 0; i < bytes.length; i += third) controller.enqueue(bytes.slice(i, i + third));

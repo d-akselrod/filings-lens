@@ -50,6 +50,14 @@ test('loadData reads the manifest past the HTTP cache, then the corpus and vecto
   expect(loaded.at(-1)).toBe(total);
 });
 
+test('download progress is reported at most once per percent, however small the network chunks', async () => {
+  const progress: LoadProgress[] = [];
+  await loadData('/data', p => progress.push(p), dirFetch(dir, '/data', 2000).fn);
+  const downloads = progress.filter(p => p.phase === 'download');
+  expect(downloads.length).toBeLessThanOrEqual(102);
+  expect(downloads.at(-1)!.loadedBytes).toBe(downloads.at(-1)!.totalBytes);
+});
+
 test('loadData without eval or samples in the manifest returns nulls for them', async () => {
   const f = dirFetch(bare, '/data');
   const out = await loadData('/data', () => {}, f.fn);
