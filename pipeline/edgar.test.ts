@@ -40,7 +40,8 @@ test('fiscal year is the calendar year of the period end', () => {
 function recordingFetch(body: (url: string) => string, status = 200) {
   const calls: Array<{ url: string; headers: Headers; at: number }> = [];
   const fn = (async (url: string | URL | Request, init?: RequestInit) => {
-    calls.push({ url: String(url), headers: new Headers(init?.headers), at: performance.now() });
+    const at = performance.now(); // before any other work, so cold-start costs don't skew the spacing measurement
+    calls.push({ url: String(url), headers: new Headers(init?.headers), at });
     return new Response(body(String(url)), { status });
   }) as typeof fetch;
   return { fn, calls };
