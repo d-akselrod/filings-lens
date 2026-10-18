@@ -6,7 +6,8 @@ export const EMBED_BATCH_MAX = 100;
 export type GeminiReason = 'quota' | 'auth' | 'bad_request' | 'server' | 'network';
 
 export class GeminiError extends Error {
-  constructor(readonly status: number, readonly reason: GeminiReason, message: string, readonly retryAfterMs?: number) {
+  /** quotaId from the API's QuotaFailure detail, e.g. "...RequestsPerDay..." for daily caps. */
+  constructor(readonly status: number, readonly reason: GeminiReason, message: string, readonly retryAfterMs?: number, readonly quotaId?: string) {
     super(message);
     this.name = 'GeminiError';
   }
@@ -37,14 +38,19 @@ export async function toGeminiError(res: Response): Promise<GeminiError> {
   const body = await res.text().catch(() => '');
   let message = body.slice(0, 300) || res.statusText || `HTTP ${res.status}`;
   let retryAfterMs: number | undefined;
+  let quotaId: string | undefined;
   try {
-    const error = (JSON.parse(body) as { error?: { message?: string; details?: Array<{ retryDelay?: unknown }> } }).error;
+    const error = (JSON.parse(body) as {
+      error?: { message?: string; details?: Array<{ retryDelay?: unknown; violations?: Array<{ quotaId?: unknown }> }> };
+    }).error;
     if (error?.message) message = error.message;
     retryAfterMs = error?.details?.map(d => parseDelay(d.retryDelay)).find(ms => ms !== undefined);
+    const id = error?.details?.flatMap(d => d.violations ?? []).map(v => v.quotaId).find(q => typeof q === 'string');
+    quotaId = typeof id === 'string' ? id : undefined;
   } catch {
     // not JSON — keep the raw text
   }
-  return new GeminiError(res.status, reasonFor(res.status), message, retryAfterMs);
+  return new GeminiError(res.status, reasonFor(res.status), message, retryAfterMs, quotaId);
 }
 
 async function post(url: string, apiKey: string, body: unknown, o?: { fetch?: typeof fetch; signal?: AbortSignal }): Promise<Response> {
