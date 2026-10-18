@@ -7,10 +7,12 @@ import { useMediaQuery } from '@/lib/media';
 interface Props {
   header: ReactNode; left: ReactNode; main: ReactNode; right: ReactNode; footer: ReactNode;
   leftLabel?: string; rightLabel?: string;
+  /** Controls the right drawer on narrow screens (e.g. a citation chip opens Sources). */
+  rightOpen?: boolean; onRightOpenChange?(open: boolean): void;
 }
 
 /** Header, three columns (≥1024px; wider side panels from 1280px), footer. Below 1024px the side panels become drawers. */
-export function AppShell({ header, left, main, right, footer, leftLabel = 'Tune search', rightLabel = 'Sources' }: Props) {
+export function AppShell({ header, left, main, right, footer, leftLabel = 'Tune search', rightLabel = 'Sources', rightOpen, onRightOpenChange }: Props) {
   const wide = useMediaQuery('(min-width: 1024px)');
   return (
     <div className="flex h-full flex-col bg-background">
@@ -25,7 +27,7 @@ export function AppShell({ header, left, main, right, footer, leftLabel = 'Tune 
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 justify-between gap-2 border-b bg-card px-3 py-2">
             <Drawer side="left" label={leftLabel} icon={<PanelLeft />}>{left}</Drawer>
-            <Drawer side="right" label={rightLabel} icon={<PanelRight />}>{right}</Drawer>
+            <Drawer side="right" label={rightLabel} icon={<PanelRight />} open={rightOpen} onOpenChange={onRightOpenChange}>{right}</Drawer>
           </div>
           <main className="flex min-h-0 min-w-0 flex-1 flex-col">{main}</main>
         </div>
@@ -35,9 +37,11 @@ export function AppShell({ header, left, main, right, footer, leftLabel = 'Tune 
   );
 }
 
-function Drawer({ side, label, icon, children }: { side: 'left' | 'right'; label: string; icon: ReactNode; children: ReactNode }) {
+function Drawer({ side, label, icon, open, onOpenChange, children }: {
+  side: 'left' | 'right'; label: string; icon: ReactNode; open?: boolean; onOpenChange?(open: boolean): void; children: ReactNode;
+}) {
   return (
-    <Sheet>
+    <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetTrigger asChild>
         <Button variant="outline" size="sm">{icon}{label}</Button>
       </SheetTrigger>

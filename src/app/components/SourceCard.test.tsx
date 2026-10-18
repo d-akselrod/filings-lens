@@ -50,3 +50,11 @@ test('a result outside the passages has no citation chip', () => {
   renderCard(null);
   expect(screen.queryByLabelText(/^Passage /)).toBeNull();
 });
+
+test('clicking the same citation again scrolls to the card again (review I2)', () => {
+  const card = (scrollKey: number) =>
+    <TooltipProvider><SourceCard result={result} chunk={view} n={1} terms={new Set()} highlighted scrollKey={scrollKey} /></TooltipProvider>;
+  const rendered = render(card(1));
+  rendered.rerender(card(2));
+  expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(2);
+});

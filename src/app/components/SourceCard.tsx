@@ -5,13 +5,15 @@ import type { ChunkView, RankedResult } from '../../core/types';
 
 const score = (s: number, digits: number) => s.toFixed(digits).replace(/^0(?=\.)/, '');
 
-export function SourceCard({ result: r, chunk: c, n, terms, highlighted }: {
+export function SourceCard({ result: r, chunk: c, n, terms, highlighted, scrollKey }: {
   result: RankedResult; chunk: ChunkView; n: number | null; terms: ReadonlySet<string>; highlighted: boolean;
+  /** Changes on every citation click, so a repeat click scrolls again. */
+  scrollKey?: number;
 }) {
   const ref = useRef<HTMLElement>(null);
   useEffect(() => {
     if (highlighted) ref.current?.scrollIntoView({ block: 'nearest' });
-  }, [highlighted]);
+  }, [highlighted, scrollKey]);
 
   return (
     <article ref={ref} data-highlighted={highlighted} aria-label={`${c.ticker} 10-K FY${c.fiscalYear}, Item ${c.item}`}

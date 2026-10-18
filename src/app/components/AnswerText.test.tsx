@@ -47,3 +47,17 @@ test('a grouped citation gives one chip per source, and a finished answer has no
   expect(container.querySelector('[data-caret]')).toBeNull();
   expect(container.querySelector('mark[data-flag]')).toBeNull();
 });
+
+test('a citation that points at no passage is shown as invalid and does nothing (review I5)', async () => {
+  const user = userEvent.setup();
+  const onCite = vi.fn();
+  render(
+    <AnswerText text="Margins rose [1][9]." checks={[check('Margins rose [1][9].', { citations: [1, 9], invalidCitations: [9] })]}
+      streaming={false} onCite={onCite} />,
+  );
+  const invalid = screen.getByRole('button', { name: 'Source 9 (not among the passages)' });
+  expect(invalid).toBeDisabled();
+  expect(invalid).toHaveAttribute('data-invalid');
+  await user.click(screen.getByRole('button', { name: 'Source 1' }));
+  expect(onCite).toHaveBeenCalledExactlyOnceWith(1);
+});

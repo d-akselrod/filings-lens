@@ -14,7 +14,7 @@ export const MODEL_LABEL: Record<ModelChoice, string> = { fast: 'Gemma 4 · 26B'
 export function AnswerCard({ turn }: { turn: Turn }) {
   const regenerate = useSession(s => s.regenerate);
   const busy = useSession(s => s.busy);
-  const setUi = useUi(s => s.set);
+  const cite = useUi(s => s.cite);
   const [copied, setCopied] = useState(false);
   const a = turn.answer;
   const sources = a.passageIds.length || turn.passages.length;
@@ -31,7 +31,7 @@ export function AnswerCard({ turn }: { turn: Turn }) {
 
   let body: ReactNode = null;
   if (a.text) {
-    body = <AnswerText text={a.text} checks={a.checks} streaming={a.status === 'streaming'} onCite={n => setUi({ highlighted: n })} />;
+    body = <AnswerText text={a.text} checks={a.checks} streaming={a.status === 'streaming'} onCite={cite} />;
   } else if (a.status === 'idle' || a.status === 'streaming') {
     body = (
       <p className="flex items-center gap-2 text-[13px] text-muted-foreground">

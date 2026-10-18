@@ -1,7 +1,8 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useSession } from '@/state/session';
 import { useUi } from '@/state/ui';
+import type { SentenceCheck } from '../../core/citations';
 import { tokenize } from '../../core/tokenize';
 import { SourceCard } from './SourceCard';
 import { TraceTable } from './TraceTable';
@@ -14,6 +15,12 @@ const TAB = 'flex-none px-0 text-[12.5px] data-[state=active]:font-semibold';
 export function EvidencePanel({ notice }: { notice?: ReactNode }) {
   const turn = useSession(s => s.turns.at(-1));
   const highlighted = useUi(s => s.highlighted);
+  const nonce = useUi(s => s.highlightNonce);
+  const tab = useUi(s => s.evidenceTab);
+  const setUi = useUi(s => s.set);
+  const turnId = turn?.id;
+  // A new question starts with nothing highlighted.
+  useEffect(() => setUi({ highlighted: null }), [turnId, setUi]);
 
   if (!turn) {
     return <p className="p-4 text-[12.5px] text-muted-foreground">Sources for your answer appear here, with every score that ranked them.</p>;
@@ -32,11 +39,11 @@ export function EvidencePanel({ notice }: { notice?: ReactNode }) {
     const chunk = chunks.get(r.chunkId);
     if (!chunk) return null;
     const n = cited.indexOf(r.chunkId) + 1 || null;
-    return <SourceCard key={r.chunkId} result={r} chunk={chunk} n={n} terms={terms} highlighted={n !== null && n === highlighted} />;
+    return <SourceCard key={r.chunkId} result={r} chunk={chunk} n={n} terms={terms} highlighted={n !== null && n === highlighted} scrollKey={nonce} />;
   };
 
   return (
-    <Tabs defaultValue="sources" className="flex h-full min-h-0 flex-col gap-0">
+    <Tabs value={tab} onValueChange={v => setUi({ evidenceTab: v as 'sources' | 'trace' })} className="flex h-full min-h-0 flex-col gap-0">
       <TabsList variant="line" className="h-10 w-full shrink-0 justify-start gap-4 border-b px-3 pb-0">
         <TabsTrigger value="sources" className={TAB}>
           Sources
@@ -68,7 +75,32 @@ export function EvidencePanel({ notice }: { notice?: ReactNode }) {
             <TraceTable results={results} chunks={chunks} />
           </>
         )}
+        {turn.answer.checks.length > 0 && <CitationCheck checks={turn.answer.checks} />}
       </TabsContent>
     </Tabs>
+  );
+}
+
+/** Spec 6.4: the Trace tab lists the deterministic check of every answer sentence. */
+function CitationCheck({ checks }: { checks: SentenceCheck[] }) {
+  return (
+    <section className="mt-4">
+      <h3 className="mb-1.5 text-[11.5px] font-semibold text-muted-foreground">Citation check</h3>
+      <ul aria-label="Citation check" className="flex flex-col gap-1.5">
+        {checks.map((c, i) => {
+          const flags = [
+            ...(c.unsupportedNumbers.length ? [`Not found in cited passage: ${c.unsupportedNumbers.join(', ')}`] : []),
+            ...c.invalidCitations.map(n => `No passage [${n}]`),
+            ...(c.missingCitation ? ['No citation'] : []),
+          ];
+          return (
+            <li key={i} className="rounded-lg border bg-card px-2.5 py-1.5 text-[12px]">
+              <p className="line-clamp-2 text-muted-foreground">{c.text}</p>
+              <p className={flags.length ? 'mt-0.5 text-warn' : 'mt-0.5 text-ok'}>{flags.length ? flags.join(' · ') : 'Checked'}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

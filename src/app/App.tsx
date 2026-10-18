@@ -29,6 +29,7 @@ export function App() {
   const samples = useBoot(s => s.samples);
   const reranker = useBoot(s => s.reranker);
   const view = useUi(s => s.view);
+  const evidenceOpen = useUi(s => s.evidenceOpen);
 
   useEffect(() => boot(), []);
 
@@ -59,6 +60,8 @@ export function App() {
       left={<SettingsPanel facets={init?.facets ?? null} rerankerStatus={reranker} />}
       main={<><Banners />{main}</>}
       right={<EvidencePanel notice={<EvidenceNotice />} />}
+      rightOpen={evidenceOpen}
+      onRightOpenChange={open => useUi.getState().set({ evidenceOpen: open })}
       footer={<Footer />}
     />
   );

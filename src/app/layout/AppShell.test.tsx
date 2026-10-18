@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { expect, test } from 'vitest';
+import { expect, test, vi } from 'vitest';
 import { mockMatchMedia } from '../test-utils';
 import { AppShell } from './AppShell';
 
@@ -31,4 +31,15 @@ test('drawer button labels can be customised', () => {
   render(<AppShell {...slots} leftLabel="Filters" rightLabel="Evidence" />);
   expect(screen.getByRole('button', { name: 'Filters' })).toBeInTheDocument();
   expect(screen.getByRole('button', { name: 'Evidence' })).toBeInTheDocument();
+});
+
+test('the Sources drawer can be opened from outside, e.g. by a citation chip', async () => {
+  mockMatchMedia(() => false);
+  const onRightOpenChange = vi.fn();
+  const view = render(<AppShell {...slots} rightOpen={false} onRightOpenChange={onRightOpenChange} />);
+  expect(screen.queryByText('RIGHT')).toBeNull();
+  view.rerender(<AppShell {...slots} rightOpen onRightOpenChange={onRightOpenChange} />);
+  expect(within(screen.getByRole('dialog')).getByText('RIGHT')).toBeInTheDocument();
+  await userEvent.keyboard('{Escape}');
+  expect(onRightOpenChange).toHaveBeenCalledWith(false);
 });
