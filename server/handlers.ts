@@ -7,7 +7,7 @@ import type { ServerEnv } from './env';
 import { checkLimits, visitorId, type CounterStore, type LimitKind } from './limits';
 
 export type ApiErrorCode = 'bad_request' | 'method' | 'origin' | 'restricted_region' | 'missing_key'
-  | 'visitor_cap' | 'global_budget' | 'upstream_quota' | 'upstream_error';
+  | 'visitor_cap' | 'global_budget' | 'upstream_quota' | 'upstream_busy' | 'upstream_error';
 
 export interface Deps {
   env: ServerEnv;
@@ -18,16 +18,26 @@ export interface Deps {
   stream: (apiKey: string, r: StreamRequest) => AsyncIterable<string>;
 }
 
-const json = (status: number, body: unknown) => new Response(JSON.stringify(body), {
-  status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+const json = (status: number, body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), {
+  status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers },
 });
-const fail = (status: number, code: ApiErrorCode, message: string) => json(status, { error: { code, message } });
+const fail = (status: number, code: ApiErrorCode, message: string, headers?: Record<string, string>) =>
+  json(status, { error: { code, message } }, headers);
 
 const countryOf = (req: Request) => req.headers.get('x-vercel-ip-country');
 const ipOf = (req: Request) => req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 
+/** A daily cap ends the built-in key's day; per-minute caps (requests or tokens) clear within about a minute. */
+function quotaCode(e: GeminiError): 'upstream_quota' | 'upstream_busy' {
+  return /PerDay/i.test(e.quotaId ?? '') || (e.retryAfterMs ?? 0) > 3_600_000 ? 'upstream_quota' : 'upstream_busy';
+}
+
 function upstreamFailure(e: unknown): Response {
-  if (e instanceof GeminiError && e.reason === 'quota') return fail(429, 'upstream_quota', "Today's free Gemini quota is used up");
+  if (e instanceof GeminiError && e.reason === 'quota') {
+    if (quotaCode(e) === 'upstream_quota') return fail(429, 'upstream_quota', "Today's free Gemini quota is used up");
+    const seconds = Math.max(1, Math.ceil((e.retryAfterMs ?? 30_000) / 1000));
+    return fail(429, 'upstream_busy', "Google's free tier is busy; try again shortly", { 'retry-after': String(seconds) });
+  }
   return fail(502, 'upstream_error', "Google's API returned an error");
 }
 
@@ -128,7 +138,7 @@ export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
         for (let r: IteratorResult<string> = first; !r.done; r = await iterator.next()) controller.enqueue(event({ type: 'delta', text: r.value }));
         controller.enqueue(event({ type: 'done' }));
       } catch (e) {
-        const code: ApiErrorCode = e instanceof GeminiError && e.reason === 'quota' ? 'upstream_quota' : 'upstream_error';
+        const code: ApiErrorCode = e instanceof GeminiError && e.reason === 'quota' ? quotaCode(e) : 'upstream_error';
         controller.enqueue(event({ type: 'error', code }));
       }
       controller.close();

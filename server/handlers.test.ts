@@ -113,20 +113,55 @@ test('a missing key gives 503 and the visitor cap gives 429', async () => {
   expect((await errorOf(capped)).code).toBe('visitor_cap');
 });
 
+const dailyQuota = () => new GeminiError(429, 'quota', 'Resource exhausted', 81_478_000, 'GenerateRequestsPerDayPerProjectPerModel-FreeTier');
+const minuteQuota = () => new GeminiError(429, 'quota', 'Resource exhausted', 31_400, 'GenerateContentInputTokensPerModelPerMinute-FreeTier');
+
 describe('streaming answers (Review Focus #3)', () => {
-  test('a quota error before the first token is a JSON 429', async () => {
+  test('a daily quota error before the first token is a JSON 429 upstream_quota', async () => {
     const { deps } = makeDeps({}, async function* () {
-      throw new GeminiError(429, 'quota', 'Resource exhausted');
+      throw dailyQuota();
     });
     const res = await handleAnswer(post('/api/answer', answerBody), deps);
     expect(res.status).toBe(429);
     expect((await errorOf(res)).code).toBe('upstream_quota');
   });
 
+  test('a per-minute (or unidentified) quota error is upstream_busy with Retry-After, not a used-up day', async () => {
+    const { deps } = makeDeps({}, async function* () {
+      throw minuteQuota();
+    });
+    const res = await handleAnswer(post('/api/answer', answerBody), deps);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('retry-after')).toBe('32');
+    expect((await errorOf(res)).code).toBe('upstream_busy');
+
+    const unknown = makeDeps({}, async function* () {
+      throw new GeminiError(429, 'quota', 'Resource exhausted');
+    });
+    const res2 = await handleAnswer(post('/api/answer', answerBody), unknown.deps);
+    expect((await errorOf(res2)).code).toBe('upstream_busy');
+    expect(res2.headers.get('retry-after')).toBe('30');
+
+    const embedDeps = makeDeps().deps;
+    embedDeps.embed = async () => { throw minuteQuota(); };
+    const embedRes = await handleEmbed(post('/api/embed', { text: 'q' }), embedDeps);
+    expect(embedRes.status).toBe(429);
+    expect((await errorOf(embedRes)).code).toBe('upstream_busy');
+  });
+
+  test('a per-minute quota error after tokens becomes an SSE upstream_busy event', async () => {
+    const { deps } = makeDeps({}, async function* () {
+      yield 'A';
+      throw minuteQuota();
+    });
+    expect(await (await handleAnswer(post('/api/answer', answerBody), deps)).text())
+      .toBe('data: {"type":"delta","text":"A"}\n\ndata: {"type":"error","code":"upstream_busy"}\n\n');
+  });
+
   test('an error after tokens becomes an SSE error event', async () => {
     const { deps } = makeDeps({}, async function* () {
       yield 'A';
-      throw new GeminiError(429, 'quota', 'Resource exhausted');
+      throw dailyQuota();
     });
     const res = await handleAnswer(post('/api/answer', answerBody), deps);
     expect(res.status).toBe(200);
