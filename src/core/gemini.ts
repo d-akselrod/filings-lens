@@ -98,7 +98,9 @@ export async function generateText(apiKey: string, r: { model: string; system: s
 export const ANSWER_MODELS = { fast: 'gemma-4-26b-a4b-it', deep: 'gemma-4-31b-it' } as const;
 export type ModelChoice = keyof typeof ANSWER_MODELS;
 
-export interface StreamRequest { model: string; system: string; user: string; signal?: AbortSignal }
+/** 'minimal' turns Gemma 4's thinking off (measured: a cited answer in ~4 s instead of 30–60 s); 'low' is rejected. */
+export type ThinkingLevel = 'minimal';
+export interface StreamRequest { model: string; system: string; user: string; signal?: AbortSignal; thinkingLevel?: ThinkingLevel }
 
 /** Splits an SSE buffer into complete `data:` events and the unfinished tail. */
 export function parseSseLines(buffer: string): { events: unknown[]; rest: string } {
@@ -118,6 +120,7 @@ export async function* streamGenerate(apiKey: string, r: StreamRequest, o?: { fe
   const res = await post(`${GEMINI_BASE}/models/${r.model}:streamGenerateContent?alt=sse`, apiKey, {
     systemInstruction: { parts: [{ text: r.system }] },
     contents: [{ role: 'user', parts: [{ text: r.user }] }],
+    ...(r.thinkingLevel ? { generationConfig: { thinkingConfig: { thinkingLevel: r.thinkingLevel } } } : {}),
   }, { fetch: o?.fetch, signal: r.signal });
   if (!res.body) throw new GeminiError(502, 'server', 'empty streaming response');
   const reader = res.body.getReader();

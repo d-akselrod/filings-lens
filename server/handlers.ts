@@ -109,7 +109,9 @@ export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
   if (g instanceof Response) return g;
 
   const user = buildUserPrompt(g.body.question, g.body.passages, g.body.previousQuestion);
-  const iterator = d.stream(g.key, { model: ANSWER_MODELS[g.body.model], system: SYSTEM_INSTRUCTION, user, signal: req.signal })[Symbol.asyncIterator]();
+  const iterator = d.stream(g.key, {
+    model: ANSWER_MODELS[g.body.model], system: SYSTEM_INSTRUCTION, user, signal: req.signal, thinkingLevel: 'minimal',
+  })[Symbol.asyncIterator]();
   // Wait for the first token so an immediate quota error can still be a proper HTTP status.
   let first: IteratorResult<string>;
   try {
