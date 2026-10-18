@@ -58,6 +58,9 @@ export interface SessionDeps {
   now?: () => number;
 }
 
+/** Embedding and answers have separate quotas and global budgets; these failures leave answers available. */
+const EMBED_ONLY_FAILURES: ReadonlySet<ClientErrorCode> = new Set(['upstream_quota', 'global_budget']);
+
 export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionState>> {
   const now = d.now ?? (() => performance.now());
   let lastId = 0;
@@ -172,7 +175,7 @@ export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionSta
               embedMs = now() - started;
             } catch (e) {
               // Search still runs, keyword-only.
-              if (e instanceof ClientError && src.kind === 'builtin') noteBuiltin(e.code);
+              if (e instanceof ClientError && src.kind === 'builtin' && !EMBED_ONLY_FAILURES.has(e.code)) noteBuiltin(e.code);
             }
           }
           patch(id, { vector, vectorSource, embedMs });

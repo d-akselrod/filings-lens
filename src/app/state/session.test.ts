@@ -133,6 +133,21 @@ test('a restricted region: the key becomes restricted, search runs without a vec
   expect(stream).not.toHaveBeenCalled();
 });
 
+test('a used-up embedding quota only costs the vector: search runs keyword-only and the answer still streams', async () => {
+  for (const code of ['upstream_quota', 'global_budget'] as const) {
+    const { session, search, stream, keys } = setup({ embed: async () => { throw new ClientError(code, 'quota'); } });
+    await session.getState().ask('Q');
+    expect(keys.builtin).toBe('available');
+    expect(search.mock.calls[0]![0].vector).toBeNull();
+    expect(stream).toHaveBeenCalledOnce();
+    expect(last(session)).toMatchObject({ vectorSource: 'none', answer: { status: 'done' } });
+  }
+  const capped = setup({ embed: async () => { throw new ClientError('visitor_cap', 'cap'); } });
+  await capped.session.getState().ask('Q');
+  expect(capped.keys.builtin).toBe('exhausted');
+  expect(capped.stream).not.toHaveBeenCalled();
+});
+
 test('with no usable key, nothing is embedded and the answer is skipped as no_key', async () => {
   const { session, embed, stream } = setup({ keys: fakeKeys('missing') });
   await session.getState().ask('Q');
