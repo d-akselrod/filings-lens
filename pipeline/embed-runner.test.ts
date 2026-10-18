@@ -101,3 +101,15 @@ test('reports every retry with its reason, wait and message', async () => {
   });
   expect(retries).toEqual([['quota', 41000, 'Resource has been exhausted'], ['server', 5000, 'unavailable']]);
 });
+
+test('paces batch starts at least paceMs apart', async () => {
+  let clock = 0;
+  const sleeps: number[] = [];
+  const f = fakeEmbed();
+  await embedWithCache(items(75), {
+    apiKey: 'k', cacheDir: dir, batchSize: 25, embed: f.embed, paceMs: 16000, now: () => clock,
+    sleep: async ms => { sleeps.push(ms); clock += ms; },
+  });
+  expect(f.batches.map(b => b.length)).toEqual([25, 25, 25]);
+  expect(sleeps).toEqual([16000, 16000]);
+});
