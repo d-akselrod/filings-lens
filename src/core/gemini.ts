@@ -82,15 +82,18 @@ export async function embedBatch(apiKey: string, texts: string[], o?: { fetch?: 
 
 interface GenerateResponse { candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }> }
 
-/** Text of the first candidate, without thought parts (Gemma 4 always thinks first). */
+/** Text of the first candidate, without thought parts (Gemma 4 thinks first unless thinkingLevel is 'minimal'). */
 export function answerText(response: GenerateResponse): string {
   return (response.candidates?.[0]?.content?.parts ?? []).filter(p => p.thought !== true).map(p => p.text ?? '').join('');
 }
 
-export async function generateText(apiKey: string, r: { model: string; system: string; user: string }, o?: { fetch?: typeof fetch }): Promise<string> {
+export async function generateText(
+  apiKey: string, r: { model: string; system: string; user: string; thinkingLevel?: 'minimal' }, o?: { fetch?: typeof fetch },
+): Promise<string> {
   const res = await post(`${GEMINI_BASE}/models/${r.model}:generateContent`, apiKey, {
     systemInstruction: { parts: [{ text: r.system }] },
     contents: [{ role: 'user', parts: [{ text: r.user }] }],
+    ...(r.thinkingLevel ? { generationConfig: { thinkingConfig: { thinkingLevel: r.thinkingLevel } } } : {}),
   }, o);
   return answerText((await res.json()) as GenerateResponse);
 }
