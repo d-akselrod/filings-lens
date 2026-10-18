@@ -1,7 +1,7 @@
 import { Info } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
-export const METRIC_HELP = "Gemini's vectors are normalized (length 1). On normalized vectors, cosine, Euclidean and dot product always put results in the same order — only the scores differ. Shorten the vectors with the Dimensions slider and turn off Re-normalize to see them diverge.";
+export const METRIC_HELP = "The embedding model's vectors are normalized (length 1). On normalized vectors, cosine, Euclidean and dot product always put results in the same order — only the scores differ. Shorten the vectors with the Dimensions slider and turn off Re-normalize to see them diverge.";
 
 export function MetricHelp() {
   return (

@@ -1,7 +1,7 @@
 import type { ClientErrorCode } from './api/client';
 
 export const COPY = {
-  footer: "Not financial advice. Questions are processed by Google's Gemini free tier — don't enter personal information. Data: SEC EDGAR.",
+  footer: "Not financial advice. Questions are processed by free AI services (Google Gemini, and NVIDIA via OpenRouter) — don't enter personal information. Data: SEC EDGAR.",
   restricted: "Answers with our built-in key aren't available in your region (EEA, UK and Switzerland). You can still search, try the sample questions, run the scorecard, or use your own Gemini key.",
   exhausted: "Today's free answers are used up. Search still works — add your own free Gemini key to keep getting answers.",
   missing: 'Answers are temporarily unavailable. Search still works — or use your own Gemini key.',
@@ -16,7 +16,7 @@ export const COPY = {
   upstreamError: "Google's API returned an error. Try again in a moment.",
   deepNote: 'Deep answers use Gemma 4 31B and can take up to a minute.',
   loadFailed: "Couldn't load the filings data. Reload the page to try again.",
-  busy: "Google's free tier is busy right now. Try again in a minute.",
+  busy: 'The free AI tier is busy right now. Try again in a minute.',
   staleCorpus: 'The filings data was updated. Reload the page to ask about the new version.',
   stale: 'Settings changed since this answer.',
   emptyTitle: "Ask about the Magnificent 7's annual reports",

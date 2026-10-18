@@ -19,19 +19,19 @@ Not deployed yet. The link goes here once the full corpus is embedded and the Ve
 ```
 OFFLINE (owner's machine; re-runnable, cached, resumable)
 EDGAR ─► fetch 10-K HTML ─► split into Items ─► chunk (≤600 tokens, 75 overlap)
-      ─► embed (gemini-embedding-2, 768-d) ─► corpus.<hash>.json + vectors.<hash>.f16 (float16)
+      ─► embed (NVIDIA Nemotron 3 Embed 1B via OpenRouter, sliced to 768-d) ─► corpus.<hash>.json + vectors.<hash>.f16
       ─► ship as static files under /data with a manifest
 
 IN THE BROWSER (Web Worker)
 download manifest, corpus and vectors ─► rebuild PGlite (Postgres in WASM) in memory
                                        ─► build BM25 postings tables
-question ─► embed query (Vercel Function, or the visitor's own key)
+question ─► embed query (Vercel Function → OpenRouter)
         ─► vector scan (hand-written)  ┐
         ─► BM25 (hand-written SQL)      ┴► merge (RRF) ─► rerank (cross-encoder, WASM threads)
-        ─► top passages ─► answer (Vercel Function or the visitor's own key), streamed, with citations
+        ─► top passages ─► answer (Gemma 4 via the Vercel Function, or the visitor's own Gemini key), streamed, with citations
 
 VERCEL FUNCTIONS (the built-in key never reaches the browser)
-/api/status  region + key availability     /api/embed   query embedding
+/api/status  region + key availability     /api/embed   query embedding (OpenRouter, Nemotron 3 Embed)
 /api/answer  Gemma 4 answer over the passages the client names by chunk id, streamed as SSE
 ```
 
@@ -40,14 +40,14 @@ VERCEL FUNCTIONS (the built-in key never reaches the browser)
 
 ## How search works
 
-- **Vector math.** Hand-written cosine, Euclidean (L2) and dot-product scans over float16 vectors in a typed array. Vectors can be shortened to 128/256/512 dimensions (Gemini's embeddings are Matryoshka-trained) and optionally re-normalized.
+- **Vector math.** Hand-written cosine, Euclidean (L2) and dot-product scans over float16 vectors in a typed array. The model returns 2,048 dimensions; its card allows keeping a leading slice and re-normalizing, so the site stores 768 and the Dimensions slider can cut further to 512/256/128, optionally without re-normalizing.
 - **BM25 in SQL.** The keyword index is plain Postgres tables: a `terms` table of postings stored as integer arrays, plus per-chunk lengths. Scoring is one SQL query with tunable `k1` and `b`. The tokenizer (NFKC, stopwords, Porter stemming) is shared by indexing, querying and highlighting.
 - **Fusion.** Reciprocal Rank Fusion with a tunable `k` and a vector weight α. Filters (company, fiscal year, section) apply before scoring in both searches.
 - **Reranker.** `Xenova/ms-marco-MiniLM-L-6-v2` (8-bit, 23 MB) runs in the worker through transformers.js on WASM, scoring the top N fused results. The site is served cross-origin isolated (COOP/COEP) so the WASM runtime can use several threads: 20 passages take about 2 s instead of 7 s.
 
 ## Why the metric switch doesn't change the order (until you shorten the vectors)
 
-Gemini's vectors are normalized to length 1. For unit vectors, Euclidean distance is a function of cosine similarity (‖a − b‖² = 2 − 2·cos θ), and the dot product *is* the cosine. So all three metrics put results in the same order; only the scores differ. Shorten the vectors with the Dimensions slider and turn off Re-normalize, and the vectors are no longer unit length, so the three metrics finally disagree.
+The embedding model's vectors are normalized to length 1. For unit vectors, Euclidean distance is a function of cosine similarity (‖a − b‖² = 2 − 2·cos θ), and the dot product *is* the cosine. So all three metrics put results in the same order; only the scores differ. Shorten the vectors with the Dimensions slider and turn off Re-normalize, and the vectors are no longer unit length, so the three metrics finally disagree.
 
 ## Scorecard
 
@@ -55,7 +55,8 @@ Pending: the reviewed test set is built after the full corpus is embedded (an LL
 
 ## Cost: $0
 
-- Google AI Studio free tier: `gemini-embedding-2` for embeddings, Gemma 4 (`gemma-4-26b-a4b-it`, `gemma-4-31b-it`) for answers.
+- OpenRouter free tier: NVIDIA Nemotron 3 Embed 1B (`nvidia/nemotron-3-embed-1b:free`) for embeddings. Its free tier counts requests (50 a day) rather than texts, so the whole corpus embeds in one run of about 35 batched requests.
+- Google AI Studio free tier: Gemma 4 (`gemma-4-26b-a4b-it`, `gemma-4-31b-it`) for answers.
 - Vercel Hobby: static hosting plus three functions.
 - Upstash Redis free plan through the Vercel Marketplace, for daily limits.
 - SEC EDGAR, Hugging Face (reranker weights) and jsDelivr (ONNX runtime) are free to use.
@@ -68,8 +69,9 @@ Requires Node 22 or later.
 
 ```bash
 npm install
-cp .env.example .env.local   # then set GEMINI_API_KEY and SEC_USER_AGENT ("Your Name you@example.com")
-npm run ingest -- --partial  # fetch, parse, chunk and embed; the free tier embeds ~1,000 passages a day, so rerun daily
+cp .env.example .env.local   # then set GEMINI_API_KEY, OPENROUTER_API_KEY and SEC_USER_AGENT ("Your Name you@example.com")
+npm run ingest               # fetch, parse, chunk and embed the 4,443 passages (~35 free OpenRouter requests)
+npm run eval:finalize        # embed the sample questions (and the reviewed test set, once data/eval/questions.jsonl exists)
 npm run dev:api              # local stand-in for the Vercel functions on :8787 (DEV_COUNTRY=DE simulates a restricted visitor)
 npm run dev                  # the app on :5173, proxying /api to :8787
 ```
@@ -86,8 +88,8 @@ npm run dev                  # the app on :5173, proxying /api to :8787
 
 ## Limitations
 
-- **Free tier.** Answers and query embeddings use Google's free tier, with per-minute and daily limits. When the built-in key runs out, search, the sample questions and the Scorecard keep working, and you can add your own free Gemini key, which stays in your browser and goes only to Google.
+- **Free tier.** Answers use Google's Gemini free tier; question embeddings use OpenRouter's free tier, which allows 50 requests a day across the site. Once those run out for the day, typed questions search by keyword only (answers still work), and sample questions keep full hybrid search because their vectors are precomputed. When the answer key runs out, search, the sample questions and the Scorecard keep working, and you can add your own free Gemini key, which stays in your browser and goes only to Google.
 - **Regional rule.** The built-in key is never used for visitors in the EEA, the UK or Switzerland (an unknown country counts as restricted). Those visitors can still search (keyword search plus rerank), run the sample questions with full hybrid search, use the Scorecard, or bring their own key.
-- **Questions go to Google.** Don't enter personal information.
+- **Questions go to Google and NVIDIA.** Free endpoints may keep requests to improve their models. Don't enter personal information.
 - **Speed.** The database and reranker run on your device; on low-end phones the first load and reranking are slower. Reranking can be turned off.
 - **Citations are checked, not guaranteed.** The number check catches figures that don't appear in the cited passages; it can't judge whether a sentence's reasoning is right.

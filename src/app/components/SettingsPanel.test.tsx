@@ -71,7 +71,7 @@ test('focusing the metric help shows the explanation', async () => {
   renderPanel();
   act(() => screen.getByRole('button', { name: 'About distance metrics' }).focus());
   expect(await screen.findByRole('tooltip')).toHaveTextContent(METRIC_HELP);
-  expect(METRIC_HELP).toBe("Gemini's vectors are normalized (length 1). On normalized vectors, cosine, Euclidean and dot product always put results in the same order — only the scores differ. Shorten the vectors with the Dimensions slider and turn off Re-normalize to see them diverge.");
+  expect(METRIC_HELP).toBe("The embedding model's vectors are normalized (length 1). On normalized vectors, cosine, Euclidean and dot product always put results in the same order — only the scores differ. Shorten the vectors with the Dimensions slider and turn off Re-normalize to see them diverge.");
 });
 
 test('company tiles filter by ticker and the header counts them', async () => {
