@@ -7,7 +7,7 @@ export const COPY = {
   missing: 'Answers are temporarily unavailable. Search still works — or use your own Gemini key.',
   keywordOnly: 'No question embedding is available, so this search is keyword-only. Sample questions still use full hybrid search.',
   noMatches: 'No passages matched. Try removing some filters.',
-  rerankerUnavailable: "The reranker is still loading, so these results aren't reranked yet.",
+  rerankerUnavailable: "These results aren't reranked: the reranker is still loading, or it couldn't run on this device.",
   interrupted: 'Answer interrupted.',
   noKey: 'Answers need a Gemini key. Search still works — or use your own Gemini key.',
   byokInvalid: 'Google rejected that key. Check it in Google AI Studio.',
@@ -18,6 +18,7 @@ export const COPY = {
   loadFailed: "Couldn't load the filings data. Reload the page to try again.",
   busy: 'The free AI tier is busy right now. Try again in a minute.',
   staleCorpus: 'The filings data was updated. Reload the page to ask about the new version.',
+  searchFailed: 'Search failed on this device. Try again, or turn off reranking in Tune search.',
   stale: 'Settings changed since this answer.',
   emptyTitle: "Ask about the Magnificent 7's annual reports",
   emptyBody: 'Answers come only from the last three 10-K filings of Apple, Microsoft, NVIDIA, Alphabet, Amazon, Meta and Tesla. Every sentence cites its passages, and numbers that don’t appear in them are flagged.',
@@ -37,6 +38,7 @@ export function copyForCode(code: ClientErrorCode | undefined): string {
     case 'byok_quota': return COPY.byokQuota;
     case 'upstream_busy': return COPY.busy;
     case 'stale_corpus': return COPY.staleCorpus;
+    case 'search_failed': return COPY.searchFailed;
     case 'network': return COPY.network;
     default: return COPY.upstreamError;
   }

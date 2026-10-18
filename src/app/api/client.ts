@@ -6,7 +6,7 @@ import { isDailyQuota, UpstreamError } from '../../core/upstream';
 import type { BuiltinStatus } from '../state/keys';
 
 export type KeySource = { kind: 'builtin' } | { kind: 'byok'; key: string };
-export type ClientErrorCode = ApiErrorCode | 'network' | 'byok_invalid' | 'byok_quota' | 'no_key';
+export type ClientErrorCode = ApiErrorCode | 'network' | 'byok_invalid' | 'byok_quota' | 'no_key' | 'search_failed';
 
 export class ClientError extends Error {
   constructor(readonly code: ClientErrorCode, message: string) {

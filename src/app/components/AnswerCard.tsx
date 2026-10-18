@@ -64,7 +64,7 @@ export function AnswerCard({ turn }: { turn: Turn }) {
           {COPY.interrupted}
         </Status>
       )}
-      {(a.status === 'error' || a.status === 'skipped') && <Status tone={a.error ? 'warn' : 'muted'}>{copyForCode(a.error)}</Status>}
+      {(a.status === 'error' || a.status === 'skipped') && !turn.stale && <Status tone={a.error ? 'warn' : 'muted'}>{copyForCode(a.error)}</Status>}
       {turn.stale && a.status !== 'streaming' && (
         <Status tone="muted" action={<Button size="xs" variant="outline" disabled={busy} onClick={() => void regenerate()}>Regenerate</Button>}>
           {COPY.stale}

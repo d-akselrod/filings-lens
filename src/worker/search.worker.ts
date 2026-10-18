@@ -60,7 +60,14 @@ export function createWorkerApi(d: {
       return { manifest: data.manifest, chunkCount: engine.count, facets, hasEval: evalItems !== null };
     },
     async search(q, s) {
-      return loaded().search(q, s, rerank);
+      if (!rerank || !s.rerank) return loaded().search(q, s, rerank);
+      try {
+        return await loaded().search(q, s, rerank);
+      } catch {
+        // A cross-encoder that fails here (e.g. out of memory on a phone) would fail every later search too.
+        rerank = undefined;
+        return loaded().search(q, s, undefined);
+      }
     },
     async getChunks(ids) {
       return loaded().getChunks(ids);

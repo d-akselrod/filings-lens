@@ -235,6 +235,37 @@ test('settings changed while a question is being searched are applied before ans
   expect(stream.mock.calls[0]![0].chunkIds).toEqual([0, 1, 2]);
 });
 
+test('a failed search ends the turn with an error instead of spinning (review I1)', async () => {
+  const { session, search, stream } = setup();
+  search.mockRejectedValueOnce(new Error('wasm out of memory'));
+  await session.getState().ask('Q');
+  expect(last(session)).toMatchObject({ search: null, answer: { status: 'error', error: 'search_failed' } });
+  expect(stream).not.toHaveBeenCalled();
+  expect(session.getState().busy).toBe(false);
+});
+
+test('after "no passages matched", a re-search that finds passages marks the answer stale so it can be regenerated (review I3)', async () => {
+  let settings: SearchSettings = DEFAULT_SETTINGS;
+  const { session, search } = setup({ settings: () => settings, ids: [] });
+  await session.getState().ask('Q');
+  expect(last(session)).toMatchObject({ stale: false, answer: { status: 'skipped' } });
+  settings = { ...DEFAULT_SETTINGS, k1: 1.5 };
+  search.mockResolvedValueOnce(response([3, 4, 5]));
+  await session.getState().rerun();
+  expect(last(session)).toMatchObject({ stale: true, passages: [{ id: 3 }, { id: 4 }, { id: 5 }] });
+});
+
+test('a follow-up never searches with more than 500 characters: the earlier question is shortened (review I4)', async () => {
+  const { session, embed } = setup();
+  await session.getState().ask(`Earlier ${'e'.repeat(392)}`);
+  const followUp = `And now ${'n'.repeat(292)}`;
+  await session.getState().ask(followUp, { followUp: true });
+  const text = embed.mock.calls[1]![0] as string;
+  expect(text.length).toBeLessThanOrEqual(500);
+  expect(text.endsWith(followUp)).toBe(true);
+  expect(text.startsWith('Earlier ')).toBe(true);
+});
+
 test('clear removes every turn', async () => {
   const { session } = setup();
   await session.getState().ask('Q');

@@ -64,6 +64,12 @@ export interface SessionDeps {
  */
 const SHARED_REFUSALS: ReadonlySet<ClientErrorCode> = new Set(['restricted_region', 'visitor_cap']);
 
+/** A follow-up searches with the earlier question too, shortened so the text fits the embed endpoint's limit. */
+function followUpText(previous: string, question: string): string {
+  const room = MAX_QUESTION_CHARS - question.length - 1;
+  return room > 0 ? `${previous.slice(0, room).trimEnd()} ${question}` : question;
+}
+
 export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionState>> {
   const now = d.now ?? (() => performance.now());
   let lastId = 0;
@@ -153,7 +159,7 @@ export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionSta
         const previous = get().turns.at(-1);
         const followUp = Boolean(o.followUp && previous);
         const id = `t${++lastId}`;
-        const retrievalText = followUp ? `${previous!.question} ${q}` : q;
+        const retrievalText = followUp ? followUpText(previous!.question, q) : q;
         set(s => ({
           busy: true,
           turns: [...s.turns, {
@@ -184,10 +190,16 @@ export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionSta
 
           // Settings changed during the search are picked up here, since rerun() leaves a turn mid-search alone.
           let settings: SearchSettings;
-          do {
-            settings = d.settings();
-            await search(id, retrievalText, vector, settings);
-          } while (d.settings() !== settings);
+          try {
+            do {
+              settings = d.settings();
+              await search(id, retrievalText, vector, settings);
+            } while (d.settings() !== settings);
+          } catch {
+            // e.g. the reranker or PGlite running out of memory on a phone
+            patchAnswer(id, { status: 'error', error: 'search_failed' });
+            return;
+          }
           await answer(id);
         } finally {
           set({ busy: false });
@@ -197,9 +209,16 @@ export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionSta
       async rerun() {
         const turn = get().turns.at(-1);
         if (!turn?.search) return;
-        if (!(await search(turn.id, turn.retrievalText, turn.vector, d.settings()))) return;
-        const status = turnById(turn.id)?.answer.status;
-        patch(turn.id, { stale: status === 'done' || status === 'interrupted' || status === 'streaming' });
+        try {
+          if (!(await search(turn.id, turn.retrievalText, turn.vector, d.settings()))) return;
+        } catch {
+          return; // keep the previous results
+        }
+        const updated = turnById(turn.id);
+        const a = updated?.answer;
+        // A "no passages matched" skip becomes answerable once the new search finds passages.
+        const noMatchSkip = a?.status === 'skipped' && !a.error && (updated?.passages.length ?? 0) > 0;
+        patch(turn.id, { stale: a?.status === 'done' || a?.status === 'interrupted' || a?.status === 'streaming' || noMatchSkip });
       },
 
       async regenerate() {

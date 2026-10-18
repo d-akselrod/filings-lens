@@ -110,6 +110,27 @@ test('a failed download closes the database it had started opening', async () =>
   await vi.waitFor(() => expect(close).toHaveBeenCalledOnce());
 });
 
+test('a reranker that fails mid-search falls back to the fused order, and is not used again (review I1)', async () => {
+  const dir = await writeFixtureData({ withEval: false });
+  dirs.push(dir);
+  let calls = 0;
+  const failing = createWorkerApi({
+    baseUrl: '/data', fetch: dirFetch(dir, '/data').fn,
+    loadReranker: async () => async () => {
+      calls++;
+      throw new Error('wasm memory access out of bounds');
+    },
+  });
+  await failing.init(() => {});
+  await failing.loadReranker(() => {});
+  const r = await failing.search({ text: 'China', vector: basisVector(0) }, DEFAULT_SETTINGS);
+  expect(r.results.length).toBeGreaterThan(0);
+  expect(r.results[0]!.rerank).toBeUndefined();
+  expect(r.notes).toContain('reranker-unavailable');
+  await failing.search({ text: 'China', vector: basisVector(0) }, DEFAULT_SETTINGS);
+  expect(calls).toBe(1);
+}, 30_000);
+
 test('a worker without a reranker loader says so', async () => {
   await expect(api.loadReranker(() => {})).rejects.toThrow('Reranker is not available');
 });

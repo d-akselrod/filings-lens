@@ -48,7 +48,7 @@ export function EvidencePanel({ notice }: { notice?: ReactNode }) {
       <TabsContent value="sources" className="min-h-0 flex-1 overflow-y-auto p-2.5">
         <div className="flex flex-col gap-2">
           {notice}
-          {!turn.search && <p className="p-1.5 text-[12.5px] text-muted-foreground">Searching…</p>}
+          {!turn.search && turn.answer.status === 'idle' && <p className="p-1.5 text-[12.5px] text-muted-foreground">Searching…</p>}
           {shown.slice(0, passageCount).map(card)}
           {shown.length > passageCount && (
             <>
