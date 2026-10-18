@@ -113,3 +113,14 @@ test('paces batch starts at least paceMs apart', async () => {
   expect(f.batches.map(b => b.length)).toEqual([25, 25, 25]);
   expect(sleeps).toEqual([16000, 16000]);
 });
+
+test('a daily quota stops at once instead of backing off', async () => {
+  const daily = new GeminiError(429, 'quota', 'Resource has been exhausted', 81478000, 'EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier');
+  const f = fakeEmbed(['ok', daily]);
+  const s = fakeSleep();
+  const error = await embedWithCache(items(50), { apiKey: 'k', cacheDir: dir, batchSize: 25, embed: f.embed, sleep: s.sleep }).catch(e => e);
+  expect(error).toBeInstanceOf(QuotaExhaustedError);
+  expect(String(error.message)).toMatch(/daily/i);
+  expect(s.sleeps).toEqual([]);
+  expect((await readdir(dir)).filter(name => name.endsWith('.f32'))).toHaveLength(25);
+});

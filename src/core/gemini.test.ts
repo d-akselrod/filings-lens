@@ -64,7 +64,13 @@ test('maps HTTP errors to GeminiError reasons', async () => {
     }
     throw new Error('expected a rejection');
   };
-  expect(await reasonOf(json(quotaBody, 429))).toMatchObject({ reason: 'quota', status: 429, retryAfterMs: 41000 });
+  expect(await reasonOf(json(quotaBody, 429))).toMatchObject({ reason: 'quota', status: 429, retryAfterMs: 41000, quotaId: undefined });
+  const daily = { error: { ...quotaBody.error, details: [
+    { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaMetric: 'generativelanguage.googleapis.com/embed_content_free_tier_requests',
+      quotaId: 'EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier', quotaValue: '1000' }] },
+    { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '81478s' },
+  ] } };
+  expect(await reasonOf(json(daily, 429))).toMatchObject({ reason: 'quota', retryAfterMs: 81478000, quotaId: 'EmbedContentRequestsPerDayPerUserPerProjectPerModel-FreeTier' });
   expect(await reasonOf(json({ error: { code: 403, message: 'Your API key was reported as leaked.', status: 'PERMISSION_DENIED' } }, 403)))
     .toMatchObject({ reason: 'auth', status: 403, message: 'Your API key was reported as leaked.' });
   expect(await reasonOf(json({ error: { code: 400, message: 'bad', status: 'INVALID_ARGUMENT' } }, 400))).toMatchObject({ reason: 'bad_request' });
