@@ -7,6 +7,8 @@ const CITATION_GROUPS = /^(\s*\[\d+(?:\s*,\s*\d+)*\])+/;
 const CITATION = /\[(\d+(?:\s*,\s*\d+)*)\]/g;
 const NUMBER = /(?<![\w.])(\$\s?)?(\d{1,3}(?:,\d{3})+|\d+)(\.\d+)?(\s*(?:%|percent\b|thousand\b|million\b|billion\b|trillion\b))?/gi;
 const LABEL_BEFORE = /(item|note|part|fy|fiscal(?: year)?|q[1-4])\s*$/i;
+/** 10-K change columns write declines as "(27)%"; the parenthesis would otherwise cut the number off from its unit. */
+const NEGATIVE_PERCENT = /\((\d[\d,]*(?:\.\d+)?)\)(?=\s*(?:%|percent\b))/gi;
 const EXPONENT: Record<string, number> = { thousand: 3, million: 6, billion: 9, trillion: 12 };
 const EXEMPT = /(provided filings|passages)\s+(?:don't|do not|doesn't|does not)\s+(?:answer|cover|contain)|investment advice/i;
 const SCALES = [1e-9, 1e-6, 1e-3, 1, 1e3, 1e6, 1e9];
@@ -46,7 +48,7 @@ export function extractCitations(s: string): number[] {
 
 /** Numbers with their scale (thousand…trillion, %), skipping years, small counts and labels like "Item 7". */
 export function extractNumbers(s: string): NumberToken[] {
-  const text = s.replace(CITATION, ' ').replace(/\b10-[KQ]\b/g, ' ');
+  const text = s.replace(CITATION, ' ').replace(/\b10-[KQ]\b/g, ' ').replace(NEGATIVE_PERCENT, '$1');
   const out: NumberToken[] = [];
   for (const m of text.matchAll(NUMBER)) {
     const [raw, dollar, int, frac, unitRaw] = m;
