@@ -1,10 +1,10 @@
-import { ANSWER_MODELS, GeminiError, queryText, type ModelChoice, type StreamRequest } from '../src/core/gemini';
-import { buildUserPrompt, MAX_PASSAGES, MAX_QUESTION_CHARS, SYSTEM_INSTRUCTION, type PromptPassage } from '../src/core/prompt';
-import { isRestrictedCountry } from '../src/core/region';
-import { encodeVectorB64 } from '../src/core/scorecard';
-import type { CorpusLookup } from './corpus';
-import type { ServerEnv } from './env';
-import { checkLimits, visitorId, type CounterStore, type LimitKind } from './limits';
+import { ANSWER_MODELS, GeminiError, queryText, type ModelChoice, type StreamRequest } from '../src/core/gemini.js';
+import { buildUserPrompt, MAX_PASSAGES, MAX_QUESTION_CHARS, SYSTEM_INSTRUCTION, type PromptPassage } from '../src/core/prompt.js';
+import { isRestrictedCountry } from '../src/core/region.js';
+import { encodeVectorB64 } from '../src/core/scorecard.js';
+import type { CorpusLookup } from './corpus.js';
+import type { ServerEnv } from './env.js';
+import { checkLimits, visitorId, type CounterStore, type LimitKind } from './limits.js';
 
 export type ApiErrorCode = 'bad_request' | 'method' | 'origin' | 'restricted_region' | 'missing_key'
   | 'visitor_cap' | 'global_budget' | 'upstream_quota' | 'upstream_busy' | 'upstream_error' | 'stale_corpus';

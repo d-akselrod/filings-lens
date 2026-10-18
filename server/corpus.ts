@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { PromptPassage } from '../src/core/prompt';
-import type { CorpusFile, Manifest } from '../src/core/types';
+import type { PromptPassage } from '../src/core/prompt.js';
+import type { CorpusFile, Manifest } from '../src/core/types.js';
 
 export interface CorpusLookup {
   /** The manifest's corpus file name; chunk ids only mean something within one version. */

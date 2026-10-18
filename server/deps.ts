@@ -1,8 +1,8 @@
-import { embedBatch, streamGenerate } from '../src/core/gemini';
-import { loadCorpusLookup, type CorpusLookup } from './corpus';
-import { readEnv } from './env';
-import type { Deps } from './handlers';
-import { memoryStore, upstashStore } from './limits';
+import { embedBatch, streamGenerate } from '../src/core/gemini.js';
+import { loadCorpusLookup, type CorpusLookup } from './corpus.js';
+import { readEnv } from './env.js';
+import type { Deps } from './handlers.js';
+import { memoryStore, upstashStore } from './limits.js';
 
 let deps: Deps | null = null;
 
