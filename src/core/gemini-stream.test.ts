@@ -91,3 +91,9 @@ test('parseSseLines returns complete data lines and keeps the partial tail', () 
   expect(parseSseLines('data: {"a":1}\n\ndata: {"b"')).toEqual({ events: [{ a: 1 }], rest: 'data: {"b"' });
   expect(parseSseLines('data: {"a":1}\r\n\r\n')).toEqual({ events: [{ a: 1 }], rest: '' });
 });
+
+test('a thinking level is sent as generationConfig.thinkingConfig', async () => {
+  const f = fakeFetch(sseResponse([part('OK')]));
+  await collect(streamGenerate('k', { ...request, thinkingLevel: 'minimal' }, { fetch: f.fn }));
+  expect(JSON.parse(String(f.calls[0]!.init.body)).generationConfig).toEqual({ thinkingConfig: { thinkingLevel: 'minimal' } });
+});

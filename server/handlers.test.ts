@@ -148,6 +148,7 @@ describe('streaming answers (Review Focus #3)', () => {
     const request = stream.mock.calls[0]![1] as StreamRequest;
     expect(stream.mock.calls[0]![0]).toBe('server-key');
     expect(request.model).toBe('gemma-4-26b-a4b-it');
+    expect(request.thinkingLevel).toBe('minimal');
     expect(request.user).toContain("Passages:\n[1] AAPL 10-K FY2025 — Item 7 Management's Discussion and Analysis\n");
     expect(request.user).toContain('[2] NVDA 10-K FY2025 — Item 1A Risk Factors\n');
     expect(request.user.startsWith('Previous question (context only): What about Apple?')).toBe(true);

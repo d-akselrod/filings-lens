@@ -4,8 +4,10 @@ import { join } from 'node:path';
 import { EMBED_DIMS, EMBED_MODEL, embedBatch, GeminiError } from '../src/core/gemini';
 
 export class QuotaExhaustedError extends Error {
-  constructor() {
-    super('Free-tier quota exhausted; progress is cached — rerun later');
+  constructor(daily = false) {
+    super(daily
+      ? 'Daily free-tier quota exhausted; progress is cached — rerun after midnight Pacific'
+      : 'Free-tier quota exhausted; progress is cached — rerun later');
     this.name = 'QuotaExhaustedError';
   }
 }
@@ -72,6 +74,8 @@ export async function embedWithCache(items: Array<{ key: string; text: string }>
       vectors = await embed(o.apiKey, batch.map(([, text]) => text));
     } catch (e) {
       if (e instanceof GeminiError && e.reason === 'quota') {
+        // Waiting out a per-day cap is pointless; stop so the next run resumes from the cache.
+        if (/PerDay/i.test(e.quotaId ?? '')) throw new QuotaExhaustedError(true);
         consecutiveQuota++;
         if (consecutiveQuota >= maxQuota) throw new QuotaExhaustedError();
         const waitMs = Math.min((e.retryAfterMs ?? DEFAULT_QUOTA_DELAY) * 2 ** (consecutiveQuota - 1), MAX_QUOTA_DELAY);
@@ -100,4 +104,14 @@ export async function embedWithCache(items: Array<{ key: string; text: string }>
   }
 
   return new Map(items.map(item => [item.key, byHash.get(hashOf(item.text))!]));
+}
+
+/** Vectors already in the cache for these items (no API calls); missing items are simply absent. */
+export async function readCachedVectors(items: Array<{ key: string; text: string }>, cacheDir: string): Promise<Map<string, Float32Array>> {
+  const found = new Map<string, Float32Array>();
+  for (const item of items) {
+    const vector = await readCached(join(cacheDir, `${hashOf(item.text)}.f32`));
+    if (vector) found.set(item.key, vector);
+  }
+  return found;
 }

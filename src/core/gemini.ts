@@ -6,7 +6,8 @@ export const EMBED_BATCH_MAX = 100;
 export type GeminiReason = 'quota' | 'auth' | 'bad_request' | 'server' | 'network';
 
 export class GeminiError extends Error {
-  constructor(readonly status: number, readonly reason: GeminiReason, message: string, readonly retryAfterMs?: number) {
+  /** quotaId from the API's QuotaFailure detail, e.g. "...RequestsPerDay..." for daily caps. */
+  constructor(readonly status: number, readonly reason: GeminiReason, message: string, readonly retryAfterMs?: number, readonly quotaId?: string) {
     super(message);
     this.name = 'GeminiError';
   }
@@ -37,14 +38,19 @@ export async function toGeminiError(res: Response): Promise<GeminiError> {
   const body = await res.text().catch(() => '');
   let message = body.slice(0, 300) || res.statusText || `HTTP ${res.status}`;
   let retryAfterMs: number | undefined;
+  let quotaId: string | undefined;
   try {
-    const error = (JSON.parse(body) as { error?: { message?: string; details?: Array<{ retryDelay?: unknown }> } }).error;
+    const error = (JSON.parse(body) as {
+      error?: { message?: string; details?: Array<{ retryDelay?: unknown; violations?: Array<{ quotaId?: unknown }> }> };
+    }).error;
     if (error?.message) message = error.message;
     retryAfterMs = error?.details?.map(d => parseDelay(d.retryDelay)).find(ms => ms !== undefined);
+    const id = error?.details?.flatMap(d => d.violations ?? []).map(v => v.quotaId).find(q => typeof q === 'string');
+    quotaId = typeof id === 'string' ? id : undefined;
   } catch {
     // not JSON — keep the raw text
   }
-  return new GeminiError(res.status, reasonFor(res.status), message, retryAfterMs);
+  return new GeminiError(res.status, reasonFor(res.status), message, retryAfterMs, quotaId);
 }
 
 async function post(url: string, apiKey: string, body: unknown, o?: { fetch?: typeof fetch; signal?: AbortSignal }): Promise<Response> {
@@ -76,15 +82,18 @@ export async function embedBatch(apiKey: string, texts: string[], o?: { fetch?: 
 
 interface GenerateResponse { candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }> }
 
-/** Text of the first candidate, without thought parts (Gemma 4 always thinks first). */
+/** Text of the first candidate, without thought parts (Gemma 4 thinks first unless thinkingLevel is 'minimal'). */
 export function answerText(response: GenerateResponse): string {
   return (response.candidates?.[0]?.content?.parts ?? []).filter(p => p.thought !== true).map(p => p.text ?? '').join('');
 }
 
-export async function generateText(apiKey: string, r: { model: string; system: string; user: string }, o?: { fetch?: typeof fetch }): Promise<string> {
+export async function generateText(
+  apiKey: string, r: { model: string; system: string; user: string; thinkingLevel?: 'minimal' }, o?: { fetch?: typeof fetch },
+): Promise<string> {
   const res = await post(`${GEMINI_BASE}/models/${r.model}:generateContent`, apiKey, {
     systemInstruction: { parts: [{ text: r.system }] },
     contents: [{ role: 'user', parts: [{ text: r.user }] }],
+    ...(r.thinkingLevel ? { generationConfig: { thinkingConfig: { thinkingLevel: r.thinkingLevel } } } : {}),
   }, o);
   return answerText((await res.json()) as GenerateResponse);
 }
@@ -92,7 +101,9 @@ export async function generateText(apiKey: string, r: { model: string; system: s
 export const ANSWER_MODELS = { fast: 'gemma-4-26b-a4b-it', deep: 'gemma-4-31b-it' } as const;
 export type ModelChoice = keyof typeof ANSWER_MODELS;
 
-export interface StreamRequest { model: string; system: string; user: string; signal?: AbortSignal }
+/** 'minimal' turns Gemma 4's thinking off (measured: a cited answer in ~4 s instead of 30–60 s); 'low' is rejected. */
+export type ThinkingLevel = 'minimal';
+export interface StreamRequest { model: string; system: string; user: string; signal?: AbortSignal; thinkingLevel?: ThinkingLevel }
 
 /** Splits an SSE buffer into complete `data:` events and the unfinished tail. */
 export function parseSseLines(buffer: string): { events: unknown[]; rest: string } {
@@ -112,6 +123,7 @@ export async function* streamGenerate(apiKey: string, r: StreamRequest, o?: { fe
   const res = await post(`${GEMINI_BASE}/models/${r.model}:streamGenerateContent?alt=sse`, apiKey, {
     systemInstruction: { parts: [{ text: r.system }] },
     contents: [{ role: 'user', parts: [{ text: r.user }] }],
+    ...(r.thinkingLevel ? { generationConfig: { thinkingConfig: { thinkingLevel: r.thinkingLevel } } } : {}),
   }, { fetch: o?.fetch, signal: r.signal });
   if (!res.body) throw new GeminiError(502, 'server', 'empty streaming response');
   const reader = res.body.getReader();
