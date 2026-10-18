@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { documentText, embedBatch, GeminiError, generateText, queryText } from './gemini';
+import { documentText, embedBatch, GeminiError, generateText, isDailyQuota, queryText } from './gemini';
 
 type Call = { url: string; init: RequestInit };
 
@@ -108,6 +108,13 @@ test('generateText sends a thinking level as generationConfig.thinkingConfig', a
   const f = fakeFetch(json({ candidates: [{ content: { role: 'model', parts: [{ text: 'OK' }] } }] }));
   await generateText('k', { model: 'gemma-4-26b-a4b-it', system: 'SYS', user: 'USER', thinkingLevel: 'minimal' }, { fetch: f.fn });
   expect(JSON.parse(String(f.calls[0]!.init.body)).generationConfig).toEqual({ thinkingConfig: { thinkingLevel: 'minimal' } });
+});
+
+test('isDailyQuota tells a used-up day from a per-minute limit', () => {
+  expect(isDailyQuota(new GeminiError(429, 'quota', 'q', 81_478_000, 'GenerateRequestsPerDayPerProjectPerModel-FreeTier'))).toBe(true);
+  expect(isDailyQuota(new GeminiError(429, 'quota', 'q', 7_200_000))).toBe(true);
+  expect(isDailyQuota(new GeminiError(429, 'quota', 'q', 21_000, 'GenerateContentInputTokensPerModelPerMinute-FreeTier'))).toBe(false);
+  expect(isDailyQuota(new GeminiError(429, 'quota', 'q'))).toBe(false);
 });
 
 test('task prefixes for gemini-embedding-2', () => {

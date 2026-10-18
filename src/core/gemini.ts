@@ -13,6 +13,11 @@ export class GeminiError extends Error {
   }
 }
 
+/** A daily cap ends the key's day; per-minute caps (requests or tokens) clear within about a minute. */
+export function isDailyQuota(e: GeminiError): boolean {
+  return /PerDay/i.test(e.quotaId ?? '') || (e.retryAfterMs ?? 0) > 3_600_000;
+}
+
 /** gemini-embedding-2 has no task_type; the task goes in the text. */
 export function queryText(q: string): string {
   return `task: search result | query: ${q}`;

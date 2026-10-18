@@ -69,17 +69,17 @@ test('a dropped connection or a non-JSON error page still becomes a ClientError'
 
 test('built-in answers post the chunk ids and yield deltas until done', async () => {
   const f = fakeFetch(sse({ type: 'delta', text: 'Sales are restricted ' }, { type: 'delta', text: '[1].' }, { type: 'done' }));
-  const parts = await collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', previousQuestion: 'p', src: builtin }, f.fn));
+  const parts = await collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', previousQuestion: 'p', corpus: 'v/corpus.1a2b3c4d.json', src: builtin }, f.fn));
   expect(parts).toEqual(['Sales are restricted ', '[1].']);
   expect(f.calls[0]!.url).toBe('/api/answer');
-  expect(JSON.parse(String(f.calls[0]!.init!.body))).toEqual({ question: 'q', chunkIds: [4], model: 'fast', previousQuestion: 'p' });
+  expect(JSON.parse(String(f.calls[0]!.init!.body))).toEqual({ question: 'q', chunkIds: [4], model: 'fast', previousQuestion: 'p', corpus: 'v/corpus.1a2b3c4d.json' });
 });
 
 test('an error event after a delta yields the delta, then throws its code', async () => {
   const f = fakeFetch(sse({ type: 'delta', text: 'Partial' }, { type: 'error', code: 'upstream_quota' }));
   const parts: string[] = [];
   const err = await failure((async () => {
-    for await (const t of streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', src: builtin }, f.fn)) parts.push(t);
+    for await (const t of streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', corpus: 'v/c.json', src: builtin }, f.fn)) parts.push(t);
   })());
   expect(parts).toEqual(['Partial']);
   expect(err.code).toBe('upstream_quota');
@@ -87,13 +87,13 @@ test('an error event after a delta yields the delta, then throws its code', asyn
 
 test('a built-in stream that ends without done counts as a network interruption', async () => {
   const f = fakeFetch(sse({ type: 'delta', text: 'Partial' }));
-  expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', src: builtin }, f.fn))))
+  expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', corpus: 'v/c.json', src: builtin }, f.fn))))
     .toMatchObject({ code: 'network' });
 });
 
 test('a built-in answer refused before streaming throws the API error code', async () => {
   const f = fakeFetch(json({ error: { code: 'visitor_cap', message: 'Daily question limit reached for this visitor' } }, 429));
-  expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'deep', src: builtin }, f.fn))))
+  expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'deep', corpus: 'v/c.json', src: builtin }, f.fn))))
     .toMatchObject({ code: 'visitor_cap' });
 });
 
@@ -103,7 +103,7 @@ test('your own key calls only Google with that key, sending the shared prompt wi
     sse({ candidates: [{ content: { role: 'model', parts: [{ text: 'Sales are restricted [1].' }] } }] }),
   );
   await embedQuestion('q', byok, f.fn);
-  const parts = await collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', src: byok }, f.fn));
+  const parts = await collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', corpus: 'v/c.json', src: byok }, f.fn));
   expect(parts).toEqual(['Sales are restricted [1].']);
   expect(f.calls).toHaveLength(2);
   for (const c of f.calls) {
@@ -123,13 +123,19 @@ test("your own key's Google errors map to byok_invalid, byok_quota, network and 
     [() => json({ error: { code: 400, message: 'API key not valid. Please pass a valid API key.', status: 'INVALID_ARGUMENT',
       details: [{ '@type': 'type.googleapis.com/google.rpc.ErrorInfo', reason: 'API_KEY_INVALID' }] } }, 400), 'byok_invalid'],
     [() => json({ error: { code: 403, message: 'Your API key was reported as leaked.', status: 'PERMISSION_DENIED' } }, 403), 'byok_invalid'],
-    [() => json({ error: { code: 429, message: 'Resource has been exhausted', status: 'RESOURCE_EXHAUSTED' } }, 429), 'byok_quota'],
+    [() => json({ error: { code: 429, message: 'Resource has been exhausted', status: 'RESOURCE_EXHAUSTED', details: [
+      { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerDayPerProjectPerModel-FreeTier' }] },
+    ] } }, 429), 'byok_quota'],
+    [() => json({ error: { code: 429, message: 'Resource has been exhausted', status: 'RESOURCE_EXHAUSTED', details: [
+      { '@type': 'type.googleapis.com/google.rpc.QuotaFailure', violations: [{ quotaId: 'GenerateRequestsPerMinutePerProjectPerModel-FreeTier' }] },
+      { '@type': 'type.googleapis.com/google.rpc.RetryInfo', retryDelay: '21s' },
+    ] } }, 429), 'upstream_busy'],
     [() => new TypeError('Failed to fetch'), 'network'],
     [() => json({ error: { code: 500, message: 'Internal error' } }, 500), 'upstream_error'],
   ];
   for (const [response, code] of cases) {
     expect(await failure(embedQuestion('q', byok, fakeFetch(response()).fn))).toMatchObject({ code });
-    expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', src: byok }, fakeFetch(response()).fn))))
+    expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', corpus: 'v/c.json', src: byok }, fakeFetch(response()).fn))))
       .toMatchObject({ code });
   }
 });
@@ -138,7 +144,7 @@ test('builtinStatusFor maps API error codes onto the built-in key status', () =>
   expect(builtinStatusFor('restricted_region')).toBe('restricted');
   for (const code of ['visitor_cap', 'global_budget', 'upstream_quota'] as const) expect(builtinStatusFor(code)).toBe('exhausted');
   expect(builtinStatusFor('missing_key')).toBe('missing');
-  for (const code of ['bad_request', 'method', 'origin', 'upstream_error', 'network', 'byok_invalid', 'byok_quota', 'no_key'] as const) {
+  for (const code of ['bad_request', 'method', 'origin', 'upstream_busy', 'upstream_error', 'stale_corpus', 'network', 'byok_invalid', 'byok_quota', 'no_key'] as const) {
     expect(builtinStatusFor(code)).toBeNull();
   }
 });

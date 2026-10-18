@@ -1,5 +1,5 @@
 import type { ApiErrorCode } from '../../../server/handlers';
-import { ANSWER_MODELS, embedBatch, GeminiError, parseSseLines, queryText, streamGenerate, type ModelChoice } from '../../core/gemini';
+import { ANSWER_MODELS, embedBatch, GeminiError, isDailyQuota, parseSseLines, queryText, streamGenerate, type ModelChoice } from '../../core/gemini';
 import { buildUserPrompt, SYSTEM_INSTRUCTION, type PromptPassage } from '../../core/prompt';
 import { decodeVectorB64 } from '../../core/scorecard';
 import type { BuiltinStatus } from '../state/keys';
@@ -44,7 +44,7 @@ function byokError(e: unknown): unknown {
   if (isAbort(e)) return e;
   const reason = e instanceof GeminiError ? e.reason : null;
   if (reason === 'auth') return new ClientError('byok_invalid', messageOf(e));
-  if (reason === 'quota') return new ClientError('byok_quota', messageOf(e));
+  if (reason === 'quota') return new ClientError(isDailyQuota(e as GeminiError) ? 'byok_quota' : 'upstream_busy', messageOf(e));
   if (reason === 'network') return new ClientError('network', messageOf(e));
   return new ClientError('upstream_error', messageOf(e));
 }
@@ -66,8 +66,9 @@ export async function embedQuestion(text: string, src: KeySource, f: typeof fetc
   return decodeVectorB64(vector);
 }
 
+/** `corpus` is the manifest's corpus file: the server refuses chunk ids from another data version (409 stale_corpus). */
 export async function* streamAnswer(a: {
-  question: string; chunkIds: number[]; passages: PromptPassage[]; model: ModelChoice;
+  question: string; chunkIds: number[]; passages: PromptPassage[]; model: ModelChoice; corpus: string;
   previousQuestion?: string; src: KeySource; signal?: AbortSignal;
 }, f: typeof fetch = fetch): AsyncGenerator<string> {
   if (a.src.kind === 'byok') {
@@ -84,7 +85,8 @@ export async function* streamAnswer(a: {
   }
 
   const res = await postJson('/api/answer', {
-    question: a.question, chunkIds: a.chunkIds, model: a.model, ...(a.previousQuestion ? { previousQuestion: a.previousQuestion } : {}),
+    question: a.question, chunkIds: a.chunkIds, model: a.model, corpus: a.corpus,
+    ...(a.previousQuestion ? { previousQuestion: a.previousQuestion } : {}),
   }, f, a.signal);
   if (!res.body) throw new ClientError('network', 'The answer response had no body');
   const reader = res.body.getReader();

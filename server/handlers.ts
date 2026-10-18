@@ -1,4 +1,4 @@
-import { ANSWER_MODELS, GeminiError, queryText, type ModelChoice, type StreamRequest } from '../src/core/gemini.js';
+import { ANSWER_MODELS, GeminiError, isDailyQuota, queryText, type ModelChoice, type StreamRequest } from '../src/core/gemini.js';
 import { buildUserPrompt, MAX_PASSAGES, MAX_QUESTION_CHARS, SYSTEM_INSTRUCTION, type PromptPassage } from '../src/core/prompt.js';
 import { isRestrictedCountry } from '../src/core/region.js';
 import { encodeVectorB64 } from '../src/core/scorecard.js';
@@ -27,9 +27,8 @@ const fail = (status: number, code: ApiErrorCode, message: string, headers?: Rec
 const countryOf = (req: Request) => req.headers.get('x-vercel-ip-country');
 const ipOf = (req: Request) => req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 
-/** A daily cap ends the built-in key's day; per-minute caps (requests or tokens) clear within about a minute. */
 function quotaCode(e: GeminiError): 'upstream_quota' | 'upstream_busy' {
-  return /PerDay/i.test(e.quotaId ?? '') || (e.retryAfterMs ?? 0) > 3_600_000 ? 'upstream_quota' : 'upstream_busy';
+  return isDailyQuota(e) ? 'upstream_quota' : 'upstream_busy';
 }
 
 function upstreamFailure(e: unknown): Response {
