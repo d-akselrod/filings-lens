@@ -1,5 +1,5 @@
 /**
- * npm run ingest [-- --parse-only] [--batch 25]
+ * npm run ingest [-- --parse-only] [--batch 25] [--pace 16000]
  * EDGAR → 10-K Items → chunks → gemini-embedding-2 → public/data/. Resumable: rerun after a quota stop.
  */
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -19,6 +19,9 @@ const parseOnly = process.argv.includes('--parse-only');
 const batchArg = process.argv.indexOf('--batch');
 // Small batches keep each request under free-tier per-minute token limits (a 600-token chunk × 25 ≈ 15K tokens).
 const batchSize = batchArg === -1 ? 25 : Number(process.argv[batchArg + 1]);
+const paceArg = process.argv.indexOf('--pace');
+// The free tier allows ~100 embeddings/minute: one batch of 25 every 16 s stays just under it.
+const paceMs = paceArg === -1 ? 16_000 : Number(process.argv[paceArg + 1]);
 const edgar = new EdgarClient({ userAgent: requireEnv('SEC_USER_AGENT'), cacheDir: 'data/.cache/edgar' });
 
 const companies: CompanyRow[] = [];
@@ -75,6 +78,7 @@ try {
     apiKey: requireEnv('GEMINI_API_KEY'),
     cacheDir: 'data/.cache/embeddings',
     batchSize,
+    paceMs,
     onRetry: (reason, waitMs, message) =>
       console.log(`\n[${new Date().toISOString().slice(11, 19)}] ${reason}: waiting ${Math.round(waitMs / 1000)}s — ${message.slice(0, 300)}`),
     onProgress: (done, total) => process.stdout.write(`\rembedded ${done}/${total}`),

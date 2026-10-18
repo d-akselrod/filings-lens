@@ -36,6 +36,8 @@ export async function embedWithCache(items: Array<{ key: string; text: string }>
   apiKey: string; cacheDir: string; batchSize?: number; embed?: typeof embedBatch;
   sleep?: (ms: number) => Promise<void>; onProgress?: (done: number, total: number) => void; maxConsecutiveQuota?: number;
   onRetry?: (reason: 'quota' | 'server' | 'network', waitMs: number, message: string) => void;
+  /** Minimum ms between the starts of consecutive API calls, to stay under per-minute limits. */
+  paceMs?: number; now?: () => number;
 }): Promise<Map<string, Float32Array>> {
   const embed = o.embed ?? embedBatch;
   const sleep = o.sleep ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms)));
@@ -58,9 +60,14 @@ export async function embedWithCache(items: Array<{ key: string; text: string }>
   const queue = [...pending.entries()];
   let consecutiveQuota = 0;
   let serverRetries = 0;
+  const now = o.now ?? Date.now;
+  let lastCall = -Infinity;
   for (let start = 0; start < queue.length;) {
     const batch = queue.slice(start, start + batchSize);
     let vectors: Float32Array[];
+    const paceWait = lastCall + (o.paceMs ?? 0) - now();
+    if (paceWait > 0) await sleep(paceWait);
+    lastCall = now();
     try {
       vectors = await embed(o.apiKey, batch.map(([, text]) => text));
     } catch (e) {
