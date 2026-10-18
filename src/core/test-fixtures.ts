@@ -1,6 +1,9 @@
 /** Deterministic helpers for tests only. */
 import { encodeF16 } from './float16';
+import { seededRandom } from './random';
 import type { CorpusFile } from './types';
+
+export { seededRandom };
 
 const FIXTURE_FILINGS = [
   { id: 0, companyId: 0, fiscalYear: 2025, periodEnd: '2025-01-26', filedAt: '2025-02-26', accession: '0001045810-25-000023', doc: 'nvda-20250126.htm', cik: 1045810 },
@@ -49,18 +52,6 @@ export function fixtureVectors(): Uint8Array {
   const all = new Float32Array(6 * 768);
   for (let i = 0; i < 6; i++) all.set(basisVector(i), i * 768);
   return encodeF16(all);
-}
-
-/** mulberry32 */
-export function seededRandom(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
 }
 
 /** Gaussian (Box–Muller) vectors scaled to unit length. */
