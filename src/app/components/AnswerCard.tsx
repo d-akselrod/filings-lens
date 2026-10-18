@@ -9,7 +9,7 @@ import type { ModelChoice } from '../../core/gemini';
 import { AnswerText } from './AnswerText';
 import { TimingBar } from './TimingBar';
 
-export const MODEL_LABEL: Record<ModelChoice, string> = { fast: 'Gemma 4 · 26B', deep: 'Gemma 4 · 31B' };
+export const MODEL_LABEL: Record<ModelChoice, string> = { fast: 'Gemma 4 · 26B' };
 
 export function AnswerCard({ turn }: { turn: Turn }) {
   const regenerate = useSession(s => s.regenerate);

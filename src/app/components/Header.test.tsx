@@ -3,16 +3,13 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, expect, test } from 'vitest';
 import { TooltipProvider } from '@/components/ui/tooltip';
-import { COPY } from '@/copy';
 import { useKeys } from '@/state/keys';
-import { useSession } from '@/state/session';
 import { useUi } from '@/state/ui';
 import { Header } from './Header';
 
 beforeEach(() => {
   localStorage.clear();
   useUi.setState({ view: 'ask', byokOpen: false });
-  useSession.setState({ model: 'fast' });
   useKeys.setState({ byokKey: null });
 });
 
@@ -37,14 +34,10 @@ test('the view switch selects the scorecard', async () => {
   expect(useUi.getState().view).toBe('ask');
 });
 
-test('choosing Gemma 4 31B selects the deep model and shows the deep note', async () => {
-  const user = userEvent.setup();
+test('the header names the one answer model, Gemma 4 26B, without a model menu', () => {
   renderHeader();
-  expect(screen.queryByText(COPY.deepNote)).toBeNull();
-  await user.click(screen.getByRole('combobox', { name: 'Answer model' }));
-  await user.click(await screen.findByRole('option', { name: 'Gemma 4 · 31B (deep, slower)' }));
-  expect(useSession.getState().model).toBe('deep');
-  expect(screen.getByText(COPY.deepNote)).toBeInTheDocument();
+  expect(screen.getByText('Gemma 4 · 26B')).toBeInTheDocument();
+  expect(screen.queryByRole('combobox', { name: 'Answer model' })).toBeNull();
 });
 
 test('the theme button cycles system, light, dark', async () => {

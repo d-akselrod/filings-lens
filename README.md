@@ -56,7 +56,7 @@ Pending: the reviewed test set is built after the full corpus is embedded (an LL
 ## Cost: $0
 
 - OpenRouter free tier: NVIDIA Nemotron 3 Embed 1B (`nvidia/nemotron-3-embed-1b:free`) for embeddings. Its free tier counts requests (50 a day) rather than texts, so the whole corpus embeds in one run of about 35 batched requests.
-- Google AI Studio free tier: Gemma 4 (`gemma-4-26b-a4b-it`, `gemma-4-31b-it`) for answers.
+- Google AI Studio free tier: Gemma 4 26B (`gemma-4-26b-a4b-it`) for answers.
 - Vercel Hobby: static hosting plus three functions.
 - Upstash Redis free plan through the Vercel Marketplace, for daily limits.
 - SEC EDGAR, Hugging Face (reranker weights) and jsDelivr (ONNX runtime) are free to use.

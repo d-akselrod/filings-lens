@@ -51,6 +51,7 @@ describe('input validation (Review Focus #1)', () => {
     ['an unknown chunk id', { ...answerBody, chunkIds: [0, 99] }],
     ['duplicate chunk ids', { ...answerBody, chunkIds: [0, 0] }],
     ['an unknown model', { ...answerBody, model: 'pro' }],
+    ['the removed Gemma 4 31B model', { ...answerBody, model: 'deep' }],
     ['no corpus version', { ...answerBody, corpus: undefined }],
     ['a body that is not JSON', '{not json'],
   ])('rejects %s with 400 and never calls Google', async (_name, body) => {

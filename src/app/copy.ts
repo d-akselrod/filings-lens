@@ -14,7 +14,6 @@ export const COPY = {
   byokQuota: "Your key's free quota is used up for today.",
   network: 'Network error. Check your connection and try again.',
   upstreamError: "Google's API returned an error. Try again in a moment.",
-  deepNote: 'Deep answers use Gemma 4 31B and can take up to a minute.',
   loadFailed: "Couldn't load the filings data. Reload the page to try again.",
   busy: 'The free AI tier is busy right now. Try again in a minute.',
   staleCorpus: 'The filings data was updated. Reload the page to ask about the new version.',

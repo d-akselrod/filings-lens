@@ -43,7 +43,6 @@ export interface SessionState {
   ask(question: string, o?: { sampleVector?: Float32Array; followUp?: boolean }): Promise<void>;
   rerun(): Promise<void>;
   regenerate(): Promise<void>;
-  setModel(m: ModelChoice): void;
   clear(): void;
 }
 
@@ -233,7 +232,6 @@ export function createSession(d: SessionDeps): UseBoundStore<StoreApi<SessionSta
         }
       },
 
-      setModel: model => set({ model }),
       clear: () => set({ turns: [] }),
     };
   });

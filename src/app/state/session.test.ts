@@ -103,11 +103,10 @@ test('regenerate re-streams the last turn from its current passages and clears s
   settings = { ...DEFAULT_SETTINGS, contextPassages: 3 };
   search.mockResolvedValueOnce(response([9, 8, 7, 6]));
   await session.getState().rerun();
-  session.getState().setModel('deep');
   await session.getState().regenerate();
   expect(stream).toHaveBeenCalledTimes(2);
-  expect(stream.mock.calls[1]![0]).toMatchObject({ chunkIds: [9, 8, 7], model: 'deep' });
-  expect(last(session)).toMatchObject({ stale: false, answer: { status: 'done', model: 'deep', passageIds: [9, 8, 7] } });
+  expect(stream.mock.calls[1]![0]).toMatchObject({ chunkIds: [9, 8, 7], model: 'fast' });
+  expect(last(session)).toMatchObject({ stale: false, answer: { status: 'done', model: 'fast', passageIds: [9, 8, 7] } });
 });
 
 test('a follow-up searches with both questions and sends the previous question', async () => {

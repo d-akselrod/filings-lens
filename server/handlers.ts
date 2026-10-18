@@ -105,7 +105,7 @@ export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
     if (b.previousQuestion !== undefined && (typeof b.previousQuestion !== 'string' || b.previousQuestion.length > MAX_QUESTION_CHARS)) {
       return `previousQuestion must be at most ${MAX_QUESTION_CHARS} characters`;
     }
-    if (b.model !== 'fast' && b.model !== 'deep') return 'model must be "fast" or "deep"';
+    if (b.model !== 'fast') return 'model must be "fast"';
     const ids = b.chunkIds;
     if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_PASSAGES || !ids.every(Number.isInteger) || new Set(ids).size !== ids.length) {
       return `chunkIds must be 1–${MAX_PASSAGES} unique integers`;

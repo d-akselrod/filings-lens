@@ -93,7 +93,7 @@ test('a built-in stream that ends without done counts as a network interruption'
 
 test('a built-in answer refused before streaming throws the API error code', async () => {
   const f = fakeFetch(json({ error: { code: 'visitor_cap', message: 'Daily question limit reached for this visitor' } }, 429));
-  expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'deep', corpus: 'v/c.json', src: builtin }, f.fn))))
+  expect(await failure(collect(streamAnswer({ question: 'q', chunkIds: [4], passages, model: 'fast', corpus: 'v/c.json', src: builtin }, f.fn))))
     .toMatchObject({ code: 'visitor_cap' });
 });
 

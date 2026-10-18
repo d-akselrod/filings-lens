@@ -1,17 +1,15 @@
 import { KeyRound, Loader2, Monitor, Moon, Sun } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { COPY } from '@/copy';
 import { cn } from '@/lib/utils';
 import { useKeys } from '@/state/keys';
-import { useSession } from '@/state/session';
 import { useUi } from '@/state/ui';
 import { useTheme } from '@/theme';
 import type { Facets } from '../../core/types';
 import type { Sample } from '../../worker/protocol';
+import { MODEL_LABEL } from './AnswerCard';
 import { ByokDialog } from './ByokDialog';
 import { CommandMenu } from './CommandMenu';
-import { ModelPicker } from './ModelPicker';
 import { ViewSwitch } from './ViewSwitch';
 
 const THEME_ICON = { system: Monitor, light: Sun, dark: Moon } as const;
@@ -21,7 +19,6 @@ export function Header({ ready, chunkCount, facets, samples }: { ready: boolean;
   const hasOwnKey = useKeys(s => s.byokKey !== null);
   const byokOpen = useUi(s => s.byokOpen);
   const setUi = useUi(s => s.set);
-  const deep = useSession(s => s.model === 'deep');
   const ThemeIcon = THEME_ICON[pref];
 
   return (
@@ -44,7 +41,7 @@ export function Header({ ready, chunkCount, facets, samples }: { ready: boolean;
             <><Loader2 className="size-3 animate-spin" aria-hidden />Loading…</>
           )}
         </span>
-        <div className="order-3 md:order-none"><ModelPicker /></div>
+        <span className="order-3 inline-flex items-center rounded-full border bg-card px-2.5 py-1 text-[11.5px] text-muted-foreground md:order-none">{MODEL_LABEL.fast}</span>
         <IconButton className="order-4 md:order-none" label="Use my own key" onClick={() => setUi({ byokOpen: true })}>
           <KeyRound />
           {hasOwnKey && <i data-testid="byok-dot" className="absolute top-1 right-1 size-1.5 rounded-full bg-ok" aria-hidden />}
@@ -53,7 +50,6 @@ export function Header({ ready, chunkCount, facets, samples }: { ready: boolean;
         <span className="order-6 h-0 basis-full md:hidden" aria-hidden />
         <ViewSwitch className="order-8 md:order-none" />
       </div>
-      {deep && <p role="note" className="border-t bg-warn/10 px-3 py-1 text-[12px] text-foreground">{COPY.deepNote}</p>}
       <ByokDialog open={byokOpen} onOpenChange={open => setUi({ byokOpen: open })} />
     </>
   );

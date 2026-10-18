@@ -67,7 +67,7 @@ export async function generateText(
   return answerText((await res.json()) as GenerateResponse);
 }
 
-export const ANSWER_MODELS = { fast: 'gemma-4-26b-a4b-it', deep: 'gemma-4-31b-it' } as const;
+export const ANSWER_MODELS = { fast: 'gemma-4-26b-a4b-it' } as const;
 export type ModelChoice = keyof typeof ANSWER_MODELS;
 
 /** 'minimal' turns Gemma 4's thinking off (measured: a cited answer in ~4 s instead of 30–60 s); 'low' is rejected. */
