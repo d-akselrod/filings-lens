@@ -80,7 +80,10 @@ export async function embedBatch(apiKey: string, texts: string[], o?: { fetch?: 
   return embeddings.map(e => Float32Array.from(e.values));
 }
 
-interface GenerateResponse { candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> } }> }
+interface GenerateResponse {
+  candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean }> }; finishReason?: string }>;
+  promptFeedback?: { blockReason?: string };
+}
 
 /** Text of the first candidate, without thought parts (Gemma 4 thinks first unless thinkingLevel is 'minimal'). */
 export function answerText(response: GenerateResponse): string {
@@ -118,6 +121,9 @@ export function parseSseLines(buffer: string): { events: unknown[]; rest: string
   return { events, rest };
 }
 
+/** Anything else (SAFETY, RECITATION, OTHER…) means the answer was cut off or withheld. */
+const NORMAL_STOPS = new Set(['STOP', 'MAX_TOKENS']);
+
 /** Streams answer text (thought parts removed) from `:streamGenerateContent?alt=sse`. */
 export async function* streamGenerate(apiKey: string, r: StreamRequest, o?: { fetch?: typeof fetch }): AsyncGenerator<string> {
   const res = await post(`${GEMINI_BASE}/models/${r.model}:streamGenerateContent?alt=sse`, apiKey, {
@@ -143,8 +149,13 @@ export async function* streamGenerate(apiKey: string, r: StreamRequest, o?: { fe
     for (const event of events) {
       const error = (event as { error?: { code?: number; message?: string } }).error;
       if (error) throw new GeminiError(error.code ?? 500, error.code === 429 ? 'quota' : 'server', error.message ?? 'stream error');
-      const text = answerText(event as GenerateResponse);
+      const response = event as GenerateResponse;
+      const blocked = response.promptFeedback?.blockReason;
+      if (blocked) throw new GeminiError(200, 'server', `Gemini blocked the prompt (${blocked})`);
+      const text = answerText(response);
       if (text) yield text;
+      const stop = response.candidates?.[0]?.finishReason;
+      if (stop && !NORMAL_STOPS.has(stop)) throw new GeminiError(200, 'server', `Gemini stopped the answer early (${stop})`);
     }
     if (chunk.done) return;
   }

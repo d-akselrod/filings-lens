@@ -119,12 +119,13 @@ export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
   } catch (e) {
     return upstreamFailure(e);
   }
+  if (first.done) return fail(502, 'upstream_error', "Google's API returned an empty answer");
   const encoder = new TextEncoder();
   const event = (payload: unknown) => encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for (let r = first; !r.done; r = await iterator.next()) controller.enqueue(event({ type: 'delta', text: r.value }));
+        for (let r: IteratorResult<string> = first; !r.done; r = await iterator.next()) controller.enqueue(event({ type: 'delta', text: r.value }));
         controller.enqueue(event({ type: 'done' }));
       } catch (e) {
         const code: ApiErrorCode = e instanceof GeminiError && e.reason === 'quota' ? 'upstream_quota' : 'upstream_error';

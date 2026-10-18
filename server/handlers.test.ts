@@ -133,6 +133,13 @@ describe('streaming answers (Review Focus #3)', () => {
     expect(await res.text()).toBe('data: {"type":"delta","text":"A"}\n\ndata: {"type":"error","code":"upstream_quota"}\n\n');
   });
 
+  test('a stream that produces no text is an upstream error, not an empty answer', async () => {
+    const { deps } = makeDeps({}, async function* () {});
+    const res = await handleAnswer(post('/api/answer', answerBody), deps);
+    expect(res.status).toBe(502);
+    expect((await errorOf(res)).code).toBe('upstream_error');
+  });
+
   test('success streams deltas then done, with passages numbered in request order', async () => {
     const { deps, stream } = makeDeps({}, async function* () {
       yield 'Services revenue';
