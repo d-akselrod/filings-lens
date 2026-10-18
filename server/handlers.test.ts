@@ -12,6 +12,8 @@ const PASSAGES: Record<number, ReturnType<CorpusLookup['get']>> = {
   2: { ticker: 'AAPL', fiscalYear: 2025, item: '7', itemTitle: "Management's Discussion and Analysis", text: 'Services revenue reached a record.' },
 };
 
+const CORPUS = 'v/corpus.1a2b3c4d.json';
+
 function makeDeps(env: Partial<ServerEnv> = {}, stream?: Deps['stream']) {
   const embed = vi.fn(async (_key: string, texts: string[]) => texts.map(() => new Float32Array(768).fill(0.25)));
   const streamSpy = vi.fn(stream ?? (async function* () { yield 'Revenue grew [1].'; }));
@@ -21,7 +23,7 @@ function makeDeps(env: Partial<ServerEnv> = {}, stream?: Deps['stream']) {
       limits: { visitorDailyRequests: 50, globalDailyAnswers: 200, globalDailyEmbeds: 800 }, ...env,
     },
     store: memoryStore(),
-    corpus: async () => ({ get: id => PASSAGES[id] }),
+    corpus: async () => ({ version: CORPUS, get: id => PASSAGES[id] }),
     now: () => new Date('2026-10-17T12:00:00Z'),
     embed,
     stream: streamSpy as Deps['stream'],
@@ -37,7 +39,7 @@ function post(path: string, body: unknown, headers: Record<string, string> = {})
   });
 }
 
-const answerBody = { question: 'How does NVIDIA describe export-control risk?', chunkIds: [2, 0], model: 'fast' };
+const answerBody = { question: 'How does NVIDIA describe export-control risk?', chunkIds: [2, 0], model: 'fast', corpus: CORPUS };
 const errorOf = async (res: Response) => ((await res.json()) as { error: { code: string; message: string } }).error;
 
 describe('input validation (Review Focus #1)', () => {
@@ -48,6 +50,7 @@ describe('input validation (Review Focus #1)', () => {
     ['an unknown chunk id', { ...answerBody, chunkIds: [0, 99] }],
     ['duplicate chunk ids', { ...answerBody, chunkIds: [0, 0] }],
     ['an unknown model', { ...answerBody, model: 'pro' }],
+    ['no corpus version', { ...answerBody, corpus: undefined }],
     ['a body that is not JSON', '{not json'],
   ])('rejects %s with 400 and never calls Google', async (_name, body) => {
     const { deps, embed, stream } = makeDeps();
@@ -93,6 +96,14 @@ describe('regional rule (Review Focus #2)', () => {
     expect(embed).not.toHaveBeenCalled();
     expect(stream).not.toHaveBeenCalled();
   });
+});
+
+test('an answer built on another corpus version gets 409 stale_corpus and never calls Google', async () => {
+  const { deps, stream } = makeDeps();
+  const res = await handleAnswer(post('/api/answer', { ...answerBody, corpus: 'v/corpus.00000000.json', chunkIds: [99] }), deps);
+  expect(res.status).toBe(409);
+  expect((await errorOf(res)).code).toBe('stale_corpus');
+  expect(stream).not.toHaveBeenCalled();
 });
 
 test('foreign origins get 403 when ALLOWED_ORIGINS is set (Review Focus #5)', async () => {

@@ -16,8 +16,9 @@ afterEach(async () => {
 
 test('looks up passage metadata and text by chunk id from the published data files', async () => {
   const corpus = fixtureCorpus();
-  await writeDataFiles(corpus, new Map(corpus.chunks.map(c => [c.key, basisVector(c.id)])), { publicDir: join(root, 'public/data') });
+  const manifest = await writeDataFiles(corpus, new Map(corpus.chunks.map(c => [c.key, basisVector(c.id)])), { publicDir: join(root, 'public/data') });
   const lookup = await loadCorpusLookup(root);
+  expect(lookup.version).toBe(manifest.corpus.file);
   expect(lookup.get(0)).toEqual({
     ticker: 'NVDA', fiscalYear: 2025, item: '1A', itemTitle: 'Risk Factors',
     text: 'Export controls restrict sales of data center products to China.',
