@@ -84,20 +84,22 @@ const sha8 = (data: string) => createHash('sha256').update(data).digest('hex').s
 const STALE = /^(eval|samples)\.[0-9a-f]{8}\.json$/;
 
 /** Writes hash-named eval/sample files next to the corpus and points the manifest at them. */
-export async function writeEvalFiles(publicDir: string, evalFile: EvalFile, samplesFile: SamplesFile): Promise<Manifest> {
-  const evalJson = JSON.stringify(evalFile);
+/** `evalFile` is null until the owner has reviewed the questions; the samples can ship before that. */
+export async function writeEvalFiles(publicDir: string, evalFile: EvalFile | null, samplesFile: SamplesFile): Promise<Manifest> {
+  const evalJson = evalFile ? JSON.stringify(evalFile) : null;
   const samplesJson = JSON.stringify(samplesFile);
-  const evalName = `eval.${sha8(evalJson)}.json`;
+  const evalName = evalJson ? `eval.${sha8(evalJson)}.json` : null;
   const samplesName = `samples.${sha8(samplesJson)}.json`;
   const versioned = join(publicDir, 'v');
   await mkdir(versioned, { recursive: true });
   for (const name of await readdir(versioned)) {
     if (STALE.test(name) && name !== evalName && name !== samplesName) await rm(join(versioned, name));
   }
-  await writeFile(join(versioned, evalName), evalJson);
+  if (evalJson && evalName) await writeFile(join(versioned, evalName), evalJson);
   await writeFile(join(versioned, samplesName), samplesJson);
   const manifest = JSON.parse(await readFile(join(publicDir, 'manifest.json'), 'utf8')) as Manifest;
-  manifest.eval = { file: `v/${evalName}`, count: evalFile.questions.length };
+  if (evalFile && evalName) manifest.eval = { file: `v/${evalName}`, count: evalFile.questions.length };
+  else delete manifest.eval;
   manifest.samples = { file: `v/${samplesName}`, count: samplesFile.samples.length };
   await writeFile(join(publicDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   return manifest;

@@ -64,3 +64,16 @@ test('writeEvalFiles writes hashed files, removes stale ones, and updates the ma
   expect(files).toContain(manifest.eval!.file.slice(2));
   expect(JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8'))).toEqual(manifest);
 });
+
+test('before the reviewed questions exist, writeEvalFiles publishes the samples alone', async () => {
+  await mkdir(join(dir, 'v'), { recursive: true });
+  await writeFile(join(dir, 'v', 'eval.00000000.json'), '{}');
+  await writeFile(join(dir, 'manifest.json'), JSON.stringify({ schemaVersion: 1, chunkCount: 6, eval: { file: 'v/eval.00000000.json', count: 3 } }));
+  const manifest = await writeEvalFiles(dir, null, { schemaVersion: 1, samples: [{ question: 'Q?', vector: 'AAAA' }] });
+  expect(manifest.eval).toBeUndefined();
+  expect(manifest.samples).toMatchObject({ count: 1 });
+  const files = await readdir(join(dir, 'v'));
+  expect(files.filter(f => f.startsWith('eval.'))).toEqual([]);
+  expect(files).toContain(manifest.samples!.file.slice(2));
+  expect(JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8'))).toEqual(manifest);
+});

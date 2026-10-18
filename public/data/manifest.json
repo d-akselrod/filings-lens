@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "builtAt": "2026-10-18T03:10:28.500Z",
+  "embeddingModel": "nvidia/nemotron-3-embed-1b:free",
+  "dims": 768,
+  "vectorEncoding": "f16le",
+  "chunkCount": 4443,
+  "corpus": {
+    "file": "v/corpus.c02a1263.json",
+    "bytes": 9890283,
+    "gzipBytes": 2061392
+  },
+  "vectors": {
+    "file": "v/vectors.39dce209.f16",
+    "bytes": 6824448
+  },
+  "samples": {
+    "file": "v/samples.58b41f57.json",
+    "count": 6
+  }
+}

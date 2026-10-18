@@ -10,7 +10,9 @@ import { readJsonl, validateEval, writeEvalFiles } from '../eval';
 import { readDataFiles } from '../node-data';
 
 const { corpus } = await readDataFiles('public/data');
-const { items, errors } = validateEval(await readJsonl('data/eval/questions.jsonl'), new Set(corpus.chunks.map(c => c.key)));
+// Until the owner has reviewed questions.jsonl, publish the sample questions alone.
+const reviewed = await readJsonl('data/eval/questions.jsonl').catch((e: NodeJS.ErrnoException) => (e.code === 'ENOENT' ? null : Promise.reject(e)));
+const { items, errors } = reviewed ? validateEval(reviewed, new Set(corpus.chunks.map(c => c.key))) : { items: [], errors: [] as string[] };
 const samples = (await readJsonl('data/eval/samples.jsonl')) as Array<{ question?: unknown }>;
 samples.forEach((s, i) => {
   if (typeof s.question !== 'string' || !s.question.trim()) errors.push(`samples.jsonl line ${i + 1}: empty question`);
@@ -26,10 +28,12 @@ const vectors = await embedWithCache([
   ...sampleQuestions.map((question, i) => ({ key: `sample:${i}`, text: queryText(question) })),
 ], { apiKey: requireEnv('OPENROUTER_API_KEY'), cacheDir: 'data/.cache/embeddings' });
 
-const evalFile: EvalFile = { schemaVersion: 1, questions: items.map(q => ({ ...q, vector: encodeVectorB64(vectors.get(`eval:${q.id}`)!) })) };
+const evalFile: EvalFile | null = reviewed
+  ? { schemaVersion: 1, questions: items.map(q => ({ ...q, vector: encodeVectorB64(vectors.get(`eval:${q.id}`)!) })) }
+  : null;
 const samplesFile: SamplesFile = {
   schemaVersion: 1,
   samples: sampleQuestions.map((question, i) => ({ question, vector: encodeVectorB64(vectors.get(`sample:${i}`)!) })),
 };
 await writeEvalFiles('public/data', evalFile, samplesFile);
-console.log(`eval: ${items.length} questions, samples: ${sampleQuestions.length}`);
+console.log(`eval: ${evalFile ? `${items.length} questions` : 'not reviewed yet (samples only)'}, samples: ${sampleQuestions.length}`);
