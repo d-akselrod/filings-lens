@@ -1,0 +1,262 @@
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<style>
+.m2{--bg:#f7f7f8;--panel:#fff;--panel2:#f4f4f5;--segon:#fff;--line:#e7e7ea;--line2:#d4d4d8;--text:#18181b;--muted:#6b6b76;--faint:#a1a1aa;--acc:#4f46e5;--acc2:#7c3aed;--accbg:rgba(79,70,229,.08);--accline:rgba(79,70,229,.28);--hl:rgba(250,204,21,.38);--ok:#16a34a;--shadow:0 1px 2px rgba(16,24,40,.05),0 10px 30px -14px rgba(16,24,40,.18);
+  font:12px/1.5 Inter,ui-sans-serif,-apple-system,"Segoe UI",sans-serif;font-feature-settings:"cv11","ss01";letter-spacing:-.003em;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:14px;overflow:hidden;height:545px;display:grid;grid-template-rows:auto 1fr;grid-template-columns:minmax(0,1fr);box-shadow:var(--shadow);text-align:left;margin:.5rem 0 1.25rem}
+.m2.dark{--bg:#0b0b0e;--panel:#121216;--panel2:#1a1a20;--segon:#2b2b34;--line:#24242b;--line2:#34343e;--text:#f4f4f5;--muted:#a1a1aa;--faint:#6b6b76;--acc:#8b93ff;--acc2:#b48cff;--accbg:rgba(139,147,255,.12);--accline:rgba(139,147,255,.35);--hl:rgba(250,204,21,.24);--ok:#22c55e;--shadow:0 1px 2px rgba(0,0,0,.5),0 10px 30px -14px rgba(0,0,0,.8)}
+.m2 *{box-sizing:border-box}
+.m2 svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.m2 .hdr{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--panel) 85%,transparent);white-space:nowrap;min-width:0;overflow:hidden}
+.m2 .logo{display:flex;align-items:center;gap:7px;font-weight:650;font-size:13px;letter-spacing:-.02em}
+.m2 .mark{width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,var(--acc),var(--acc2));box-shadow:inset 0 0 0 1px rgba(255,255,255,.25)}
+.m2 .cmdk{display:flex;align-items:center;gap:6px;margin-left:6px;padding:4px 6px 4px 8px;border:1px solid var(--line);border-radius:8px;background:var(--panel2);color:var(--faint);min-width:0;flex:0 1 200px;overflow:hidden}
+.m2 .cmdk span{overflow:hidden;text-overflow:ellipsis}
+.m2 kbd{margin-left:auto;font:10px "JetBrains Mono",ui-monospace,monospace;color:var(--muted);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;padding:0 4px;background:var(--panel)}
+.m2 .sp{flex:1}
+.m2 .pill{display:inline-flex;align-items:center;gap:6px;padding:3px 9px;border:1px solid var(--line);border-radius:999px;background:var(--panel);font-size:11px;color:var(--muted)}
+.m2 .pulse{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 22%,transparent)}
+.m2 .ib{display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--muted)}
+.m2 .body{display:grid;grid-template-columns:160px minmax(0,1fr) 206px;min-height:0}
+.m2 .side{background:var(--panel);border-right:1px solid var(--line);padding:11px 10px;overflow:hidden;display:flex;flex-direction:column;gap:13px}
+.m2 .sh{font-size:10.5px;font-weight:600;color:var(--muted);margin-bottom:6px;display:flex;justify-content:space-between}
+.m2 .tks{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.m2 .tk{font:500 9px "JetBrains Mono",ui-monospace,monospace;text-align:center;padding:4px 0;border:1px solid var(--line);border-radius:7px;color:var(--muted);background:var(--panel)}
+.m2 .tk.on{border-color:var(--accline);background:var(--accbg);color:var(--acc)}
+.m2 .seg{display:flex;padding:2px;gap:2px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)}
+.m2 .seg span{flex:1;text-align:center;padding:3px 0;border-radius:6px;font-size:10.5px;color:var(--muted)}
+.m2 .seg span.on{background:var(--segon);color:var(--text);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12),0 0 0 1px var(--line)}
+.m2 .f{display:flex;justify-content:space-between;align-items:center;font-size:11px;margin:7px 0 5px}
+.m2 .v{font:500 10px "JetBrains Mono",ui-monospace,monospace;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 5px}
+.m2 .rg{position:relative;height:4px;border-radius:4px;background:var(--line);margin:2px 6px 2px 0}
+.m2 .rg b{position:absolute;inset:0 auto 0 0;border-radius:4px;background:linear-gradient(90deg,var(--acc),var(--acc2))}
+.m2 .rg b::after{content:"";position:absolute;right:-6px;top:-4px;width:12px;height:12px;border-radius:50%;background:#fff;box-shadow:0 0 0 1px var(--line2),0 1px 3px rgba(0,0,0,.25)}
+.m2 .ticks{display:flex;justify-content:space-between;font:9px "JetBrains Mono",monospace;color:var(--faint);margin-top:4px}
+.m2 .sw{width:26px;height:15px;border-radius:999px;background:var(--line2);position:relative;flex:none}
+.m2 .sw.on{background:var(--acc)}
+.m2 .sw::after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.3)}
+.m2 .sw.on::after{left:13px}
+.m2 .main{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+.m2 .thread{flex:1;padding:14px 16px;overflow:hidden;display:flex;flex-direction:column;gap:12px}
+.m2 .ql{font-size:10.5px;color:var(--faint);font-weight:500;margin-bottom:2px}
+.m2 .qt{font-size:13.5px;font-weight:600;letter-spacing:-.015em;line-height:1.4}
+.m2 .ans{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:var(--shadow)}
+.m2 .ah{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin-bottom:7px}
+.m2 .ai{display:grid;place-items:center;width:18px;height:18px;border-radius:6px;background:linear-gradient(135deg,var(--acc),var(--acc2))}
+.m2 .ai svg{width:11px;height:11px;stroke:#fff;fill:#fff}
+.m2 .ans p{margin:0;font-size:12.5px;line-height:1.65}
+.m2 cite{font:600 9px "JetBrains Mono",monospace;font-style:normal;color:var(--acc);background:var(--accbg);border:1px solid var(--accline);border-radius:5px;padding:0 4px;margin:0 1px;vertical-align:1px}
+.m2 .caret{display:inline-block;width:6px;height:13px;background:var(--acc);border-radius:1px;vertical-align:-2px;margin-left:3px;opacity:.75}
+.m2 .trace{margin-top:11px;padding-top:9px;border-top:1px dashed var(--line)}
+.m2 .tbar{display:flex;gap:2px;height:6px}
+.m2 .tbar b{border-radius:3px}
+.m2 .tleg{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:6px;font:9.5px "JetBrains Mono",monospace;color:var(--muted)}
+.m2 .tleg i{display:inline-block;width:7px;height:7px;border-radius:2px;margin-right:4px}
+.m2 .sugg{display:flex;flex-wrap:wrap;gap:6px}
+.m2 .sugg span{font-size:11px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);background:var(--panel);color:var(--muted)}
+.m2 .comp{margin:0 12px 12px;border:1px solid var(--line2);border-radius:12px;background:var(--panel);padding:6px 6px 6px 8px;display:flex;align-items:center;gap:6px;box-shadow:var(--shadow)}
+.m2 .tok{font:500 9.5px "JetBrains Mono",monospace;padding:2px 6px;border-radius:6px;background:var(--accbg);color:var(--acc);white-space:nowrap}
+.m2 .cin{flex:1;color:var(--faint);font-size:12px;white-space:nowrap;overflow:hidden}
+.m2 .send{display:grid;place-items:center;width:26px;height:26px;border-radius:8px;background:var(--text)}
+.m2 .send svg{stroke:var(--bg)}
+.m2 .ev{background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.m2 .evt{display:flex;gap:14px;padding:0 12px;border-bottom:1px solid var(--line);font-size:11.5px}
+.m2 .evt span{padding:9px 0 8px;color:var(--muted);border-bottom:2px solid transparent}
+.m2 .evt span.on{color:var(--text);font-weight:600;border-color:var(--text)}
+.m2 .evt b{font:500 9.5px "JetBrains Mono",monospace;background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:0 4px;margin-left:5px;color:var(--muted)}
+.m2 .evl{padding:10px;display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.m2 .sc{border:1px solid var(--line);border-radius:10px;padding:9px 10px;background:var(--panel)}
+.m2 .sc.on{border-color:var(--accline);box-shadow:0 0 0 3px var(--accbg)}
+.m2 .scH{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--muted)}
+.m2 .tkn{font:600 9.5px "JetBrains Mono",monospace;color:var(--text)}
+.m2 .scT{font-weight:600;font-size:11.5px;margin:4px 0 3px}
+.m2 .sn{font-size:10.5px;line-height:1.5;color:var(--muted);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.m2 mark{background:var(--hl);color:inherit;border-radius:3px;padding:0 2px}
+.m2 .scs{display:flex;gap:4px;margin-top:7px;flex-wrap:wrap}
+.m2 .scs span{font:500 9px "JetBrains Mono",monospace;padding:1px 6px;border-radius:5px;background:var(--panel2);border:1px solid var(--line);color:var(--muted)}
+.m2 .scs span.hi{background:var(--accbg);border-color:var(--accline);color:var(--acc)}
+</style>
+
+<h2>Layout A, modernized</h2>
+<p class="subtitle">Same three panels, refreshed: a chat-style input at the bottom, ⌘K search, real sliders and toggles, matching keywords highlighted in the evidence, score pills, and a dark theme. Sample text throughout.</p>
+
+<div class="label">Light</div>
+<div class="m2 light">
+  <div class="hdr">
+    <div class="logo"><span class="mark"></span>Filings Lens</div>
+    <div class="cmdk"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search companies, sections…</span><kbd>⌘K</kbd></div>
+    <div class="sp"></div>
+    <span class="pill"><i class="pulse"></i>Postgres · 3,812 passages</span>
+    <span class="pill">Gemma 4 · 26B <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
+    <span class="ib"><svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg></span>
+    <span class="ib"><svg viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg></span>
+  </div>
+  <div class="body">
+    <aside class="side">
+      <div>
+        <div class="sh"><span>Companies</span><span style="color:var(--acc)">1 of 7</span></div>
+        <div class="tks"><span class="tk">AAPL</span><span class="tk">MSFT</span><span class="tk on">NVDA</span><span class="tk">GOOGL</span><span class="tk">AMZN</span><span class="tk">META</span><span class="tk">TSLA</span></div>
+      </div>
+      <div>
+        <div class="sh"><span>Fiscal year</span></div>
+        <div class="seg"><span class="on">All</span><span>FY25</span><span>FY24</span><span>FY23</span></div>
+      </div>
+      <div>
+        <div class="sh"><span>Vector search</span></div>
+        <div class="seg"><span class="on">Cosine</span><span>Euclid</span><span>Dot</span></div>
+        <div class="f"><span>Dimensions</span><span class="v">768</span></div>
+        <div class="rg"><b style="width:22%"></b></div>
+        <div class="ticks"><span>128</span><span>3072</span></div>
+        <div class="f"><span>Candidates</span><span class="v">50</span></div>
+      </div>
+      <div>
+        <div class="sh"><span>Keyword · BM25</span></div>
+        <div class="f"><span>k1</span><span class="v">1.2</span></div>
+        <div class="rg"><b style="width:40%"></b></div>
+        <div class="f"><span>b</span><span class="v">0.75</span></div>
+        <div class="rg"><b style="width:75%"></b></div>
+      </div>
+      <div>
+        <div class="sh"><span>Fusion &amp; rerank</span></div>
+        <div class="f"><span>RRF k</span><span class="v">60</span></div>
+        <div class="f"><span>Rerank top 20</span><span class="sw on"></span></div>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="thread">
+        <div><div class="ql">Question</div><div class="qt">How does NVIDIA describe export-control risk related to China?</div></div>
+        <div class="ans">
+          <div class="ah"><span class="ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6 5.6 1.9-5.6 1.9L12 18l-1.9-5.6-5.6-1.9 5.6-1.9z"/></svg></span><span style="color:var(--text);font-weight:600">Answer</span><span>· 3 sources</span><span class="sp"></span><svg viewBox="0 0 24 24"><rect width="13" height="13" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></div>
+          <p>NVIDIA says U.S. export rules require licenses to sell certain data-center chips to China <cite>1</cite>, and warns that tighter rules could reduce demand and help local competitors <cite>2</cite>. It adds that compliant replacement products may not arrive in time <cite>3</cite><span class="caret"></span></p>
+          <div class="trace">
+            <div class="tbar"><b style="flex:18;background:#a78bfa"></b><b style="flex:3;background:#38bdf8"></b><b style="flex:41;background:#f59e0b"></b><b style="flex:390;background:var(--acc)"></b></div>
+            <div class="tleg"><span><i style="background:#a78bfa"></i>embed 180ms</span><span><i style="background:#38bdf8"></i>search 9ms</span><span><i style="background:#f59e0b"></i>rerank 410ms</span><span><i style="background:var(--acc)"></i>answer 3.9s</span></div>
+          </div>
+        </div>
+        <div class="sugg"><span>How did this change since FY2023?</span><span>Who else cites export controls?</span></div>
+      </div>
+      <div class="comp"><span class="tok">NVDA</span><span class="tok">All years</span><span class="cin">Ask a follow-up…</span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div>
+    </main>
+    <aside class="ev">
+      <div class="evt"><span class="on">Sources<b>20</b></span><span>Trace</span></div>
+      <div class="evl">
+        <div class="sc on">
+          <div class="scH"><cite>1</cite><span class="tkn">NVDA</span><span>10-K · FY2025</span></div>
+          <div class="scT">Item 1A · Risk Factors</div>
+          <div class="sn">…new <mark>export</mark> licensing requirements apply to our data center products destined for <mark>China</mark>…</div>
+          <div class="scs"><span>BM25 #3</span><span>Vec #1</span><span class="hi">Rerank .94</span></div>
+        </div>
+        <div class="sc">
+          <div class="scH"><cite>2</cite><span class="tkn">NVDA</span><span>10-K · FY2024</span></div>
+          <div class="scT">Item 1A · Risk Factors</div>
+          <div class="sn">…further <mark>export</mark> restrictions could reduce demand and benefit competitors in <mark>China</mark>…</div>
+          <div class="scs"><span>BM25 #1</span><span>Vec #6</span><span class="hi">Rerank .88</span></div>
+        </div>
+        <div class="sc">
+          <div class="scH"><cite>3</cite><span class="tkn">NVDA</span><span>10-K · FY2025</span></div>
+          <div class="scT">Item 7 · MD&amp;A</div>
+          <div class="sn">…we may not be able to offer compliant alternatives in a timely manner…</div>
+          <div class="scs"><span>BM25 #9</span><span>Vec #2</span><span class="hi">Rerank .81</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<div class="label">Dark</div>
+<div class="m2 dark">
+  <div class="hdr">
+    <div class="logo"><span class="mark"></span>Filings Lens</div>
+    <div class="cmdk"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><span>Search companies, sections…</span><kbd>⌘K</kbd></div>
+    <div class="sp"></div>
+    <span class="pill"><i class="pulse"></i>Postgres · 3,812 passages</span>
+    <span class="pill">Gemma 4 · 26B <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg></span>
+    <span class="ib"><svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></svg></span>
+    <span class="ib"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg></span>
+  </div>
+  <div class="body">
+    <aside class="side">
+      <div>
+        <div class="sh"><span>Companies</span><span style="color:var(--acc)">1 of 7</span></div>
+        <div class="tks"><span class="tk">AAPL</span><span class="tk">MSFT</span><span class="tk on">NVDA</span><span class="tk">GOOGL</span><span class="tk">AMZN</span><span class="tk">META</span><span class="tk">TSLA</span></div>
+      </div>
+      <div>
+        <div class="sh"><span>Fiscal year</span></div>
+        <div class="seg"><span class="on">All</span><span>FY25</span><span>FY24</span><span>FY23</span></div>
+      </div>
+      <div>
+        <div class="sh"><span>Vector search</span></div>
+        <div class="seg"><span class="on">Cosine</span><span>Euclid</span><span>Dot</span></div>
+        <div class="f"><span>Dimensions</span><span class="v">768</span></div>
+        <div class="rg"><b style="width:22%"></b></div>
+        <div class="ticks"><span>128</span><span>3072</span></div>
+        <div class="f"><span>Candidates</span><span class="v">50</span></div>
+      </div>
+      <div>
+        <div class="sh"><span>Keyword · BM25</span></div>
+        <div class="f"><span>k1</span><span class="v">1.2</span></div>
+        <div class="rg"><b style="width:40%"></b></div>
+        <div class="f"><span>b</span><span class="v">0.75</span></div>
+        <div class="rg"><b style="width:75%"></b></div>
+      </div>
+      <div>
+        <div class="sh"><span>Fusion &amp; rerank</span></div>
+        <div class="f"><span>RRF k</span><span class="v">60</span></div>
+        <div class="f"><span>Rerank top 20</span><span class="sw on"></span></div>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="thread">
+        <div><div class="ql">Question</div><div class="qt">How does NVIDIA describe export-control risk related to China?</div></div>
+        <div class="ans">
+          <div class="ah"><span class="ai"><svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6 5.6 1.9-5.6 1.9L12 18l-1.9-5.6-5.6-1.9 5.6-1.9z"/></svg></span><span style="color:var(--text);font-weight:600">Answer</span><span>· 3 sources</span><span class="sp"></span><svg viewBox="0 0 24 24"><rect width="13" height="13" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg></div>
+          <p>NVIDIA says U.S. export rules require licenses to sell certain data-center chips to China <cite>1</cite>, and warns that tighter rules could reduce demand and help local competitors <cite>2</cite>. It adds that compliant replacement products may not arrive in time <cite>3</cite><span class="caret"></span></p>
+          <div class="trace">
+            <div class="tbar"><b style="flex:18;background:#a78bfa"></b><b style="flex:3;background:#38bdf8"></b><b style="flex:41;background:#f59e0b"></b><b style="flex:390;background:var(--acc)"></b></div>
+            <div class="tleg"><span><i style="background:#a78bfa"></i>embed 180ms</span><span><i style="background:#38bdf8"></i>search 9ms</span><span><i style="background:#f59e0b"></i>rerank 410ms</span><span><i style="background:var(--acc)"></i>answer 3.9s</span></div>
+          </div>
+        </div>
+        <div class="sugg"><span>How did this change since FY2023?</span><span>Who else cites export controls?</span></div>
+      </div>
+      <div class="comp"><span class="tok">NVDA</span><span class="tok">All years</span><span class="cin">Ask a follow-up…</span><span class="send"><svg viewBox="0 0 24 24"><path d="m5 12 7-7 7 7"/><path d="M12 19V5"/></svg></span></div>
+    </main>
+    <aside class="ev">
+      <div class="evt"><span class="on">Sources<b>20</b></span><span>Trace</span></div>
+      <div class="evl">
+        <div class="sc on">
+          <div class="scH"><cite>1</cite><span class="tkn">NVDA</span><span>10-K · FY2025</span></div>
+          <div class="scT">Item 1A · Risk Factors</div>
+          <div class="sn">…new <mark>export</mark> licensing requirements apply to our data center products destined for <mark>China</mark>…</div>
+          <div class="scs"><span>BM25 #3</span><span>Vec #1</span><span class="hi">Rerank .94</span></div>
+        </div>
+        <div class="sc">
+          <div class="scH"><cite>2</cite><span class="tkn">NVDA</span><span>10-K · FY2024</span></div>
+          <div class="scT">Item 1A · Risk Factors</div>
+          <div class="sn">…further <mark>export</mark> restrictions could reduce demand and benefit competitors in <mark>China</mark>…</div>
+          <div class="scs"><span>BM25 #1</span><span>Vec #6</span><span class="hi">Rerank .88</span></div>
+        </div>
+        <div class="sc">
+          <div class="scH"><cite>3</cite><span class="tkn">NVDA</span><span>10-K · FY2025</span></div>
+          <div class="scT">Item 7 · MD&amp;A</div>
+          <div class="sn">…we may not be able to offer compliant alternatives in a timely manner…</div>
+          <div class="scs"><span>BM25 #9</span><span>Vec #2</span><span class="hi">Rerank .81</span></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<h3 style="margin-top:.5rem">Which theme should visitors see first?</h3>
+<p class="subtitle" style="margin-bottom:.75rem">There's a toggle in the header either way.</p>
+<div class="options">
+  <div class="option" data-choice="light" onclick="toggleSelect(this)">
+    <div class="letter">L</div>
+    <div class="content"><h3>Light by default</h3><p>Reads as classic enterprise, like Stripe or Vercel's dashboard.</p></div>
+  </div>
+  <div class="option" data-choice="dark" onclick="toggleSelect(this)">
+    <div class="letter">D</div>
+    <div class="content"><h3>Dark by default</h3><p>Reads as a modern developer tool, like Linear or Raycast.</p></div>
+  </div>
+  <div class="option" data-choice="system" onclick="toggleSelect(this)">
+    <div class="letter">S</div>
+    <div class="content"><h3>Match the visitor's system setting</h3><p>Whatever their computer uses.</p></div>
+  </div>
+</div>
