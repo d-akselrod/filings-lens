@@ -4,6 +4,8 @@ import { mockMatchMedia } from './test-utils';
 
 if (typeof window !== 'undefined') {
   mockMatchMedia(() => false);
+  // jsdom has no ResizeObserver; Radix measures sliders, switches and popovers with it.
+  window.ResizeObserver ??= class { observe() {} unobserve() {} disconnect() {} };
   // Without vitest globals, Testing Library cannot register its own cleanup.
   const { cleanup } = await import('@testing-library/react');
   afterEach(() => cleanup());
