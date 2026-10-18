@@ -11,7 +11,8 @@
     "ingest": "tsx pipeline/cli/ingest.ts",
     "search": "tsx pipeline/cli/search.ts",
     "eval:draft": "tsx pipeline/cli/eval-draft.ts",
-    "eval:finalize": "tsx pipeline/cli/eval-finalize.ts"
+    "eval:finalize": "tsx pipeline/cli/eval-finalize.ts",
+    "dev:api": "tsx scripts/dev-api.ts"
   },
   "dependencies": {
     "@electric-sql/pglite": "^0.5.10",

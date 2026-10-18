@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "api/status.ts": { "maxDuration": 10 },
+    "api/embed.ts": { "maxDuration": 30 },
+    "api/answer.ts": { "maxDuration": 300, "includeFiles": "public/data/**" }
+  }
+}
