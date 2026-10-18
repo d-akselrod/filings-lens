@@ -1,7 +1,7 @@
-import type { SearchEngine } from './engine';
-import { decodeF16, encodeF16 } from './float16';
-import { mrrAtK, ndcgAtK, recallAtK } from './metrics';
-import type { RerankFn, SearchFilters, SearchSettings } from './types';
+import type { SearchEngine } from './engine.js';
+import { decodeF16, encodeF16 } from './float16.js';
+import { mrrAtK, ndcgAtK, recallAtK } from './metrics.js';
+import type { RerankFn, SearchFilters, SearchSettings } from './types.js';
 
 export type BaselineName = 'current' | 'vector' | 'keyword' | 'hybrid' | 'hybrid+rerank';
 

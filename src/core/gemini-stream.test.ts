@@ -87,6 +87,26 @@ test('a dropped connection mid-stream becomes a network GeminiError', async () =
   expect(error).toMatchObject({ reason: 'network' });
 });
 
+test('a blocked prompt throws instead of ending quietly', async () => {
+  const blocked = { promptFeedback: { blockReason: 'PROHIBITED_CONTENT' }, usageMetadata: { promptTokenCount: 40, totalTokenCount: 40 } };
+  const gen = streamGenerate('k', request, { fetch: fakeFetch(sseResponse([blocked])).fn });
+  await expect(gen.next()).rejects.toMatchObject({ reason: 'server', message: expect.stringContaining('PROHIBITED_CONTENT') });
+});
+
+test('an abnormal stop reason yields the text that arrived, then throws', async () => {
+  const recitation = { candidates: [{ content: { role: 'model', parts: [{ text: ' was' }] }, finishReason: 'RECITATION', index: 0 }] };
+  const gen = streamGenerate('k', request, { fetch: fakeFetch(sseResponse([part('Revenue'), recitation])).fn });
+  expect(await gen.next()).toEqual({ done: false, value: 'Revenue' });
+  expect(await gen.next()).toEqual({ done: false, value: ' was' });
+  await expect(gen.next()).rejects.toMatchObject({ reason: 'server', message: expect.stringContaining('RECITATION') });
+});
+
+test('STOP and MAX_TOKENS end the stream normally', async () => {
+  const maxTokens = { candidates: [{ content: { role: 'model', parts: [{ text: ' grew.' }] }, finishReason: 'MAX_TOKENS', index: 0 }] };
+  expect(await collect(streamGenerate('k', request, { fetch: fakeFetch(sseResponse([part('Revenue'), maxTokens])).fn })))
+    .toEqual(['Revenue', ' grew.']);
+});
+
 test('parseSseLines returns complete data lines and keeps the partial tail', () => {
   expect(parseSseLines('data: {"a":1}\n\ndata: {"b"')).toEqual({ events: [{ a: 1 }], rest: 'data: {"b"' });
   expect(parseSseLines('data: {"a":1}\r\n\r\n')).toEqual({ events: [{ a: 1 }], rest: '' });

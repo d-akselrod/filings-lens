@@ -12,6 +12,8 @@ const PASSAGES: Record<number, ReturnType<CorpusLookup['get']>> = {
   2: { ticker: 'AAPL', fiscalYear: 2025, item: '7', itemTitle: "Management's Discussion and Analysis", text: 'Services revenue reached a record.' },
 };
 
+const CORPUS = 'v/corpus.1a2b3c4d.json';
+
 function makeDeps(env: Partial<ServerEnv> = {}, stream?: Deps['stream']) {
   const embed = vi.fn(async (_key: string, texts: string[]) => texts.map(() => new Float32Array(768).fill(0.25)));
   const streamSpy = vi.fn(stream ?? (async function* () { yield 'Revenue grew [1].'; }));
@@ -21,7 +23,7 @@ function makeDeps(env: Partial<ServerEnv> = {}, stream?: Deps['stream']) {
       limits: { visitorDailyRequests: 50, globalDailyAnswers: 200, globalDailyEmbeds: 800 }, ...env,
     },
     store: memoryStore(),
-    corpus: async () => ({ get: id => PASSAGES[id] }),
+    corpus: async () => ({ version: CORPUS, get: id => PASSAGES[id] }),
     now: () => new Date('2026-10-17T12:00:00Z'),
     embed,
     stream: streamSpy as Deps['stream'],
@@ -37,7 +39,7 @@ function post(path: string, body: unknown, headers: Record<string, string> = {})
   });
 }
 
-const answerBody = { question: 'How does NVIDIA describe export-control risk?', chunkIds: [2, 0], model: 'fast' };
+const answerBody = { question: 'How does NVIDIA describe export-control risk?', chunkIds: [2, 0], model: 'fast', corpus: CORPUS };
 const errorOf = async (res: Response) => ((await res.json()) as { error: { code: string; message: string } }).error;
 
 describe('input validation (Review Focus #1)', () => {
@@ -48,6 +50,7 @@ describe('input validation (Review Focus #1)', () => {
     ['an unknown chunk id', { ...answerBody, chunkIds: [0, 99] }],
     ['duplicate chunk ids', { ...answerBody, chunkIds: [0, 0] }],
     ['an unknown model', { ...answerBody, model: 'pro' }],
+    ['no corpus version', { ...answerBody, corpus: undefined }],
     ['a body that is not JSON', '{not json'],
   ])('rejects %s with 400 and never calls Google', async (_name, body) => {
     const { deps, embed, stream } = makeDeps();
@@ -95,6 +98,14 @@ describe('regional rule (Review Focus #2)', () => {
   });
 });
 
+test('an answer built on another corpus version gets 409 stale_corpus and never calls Google', async () => {
+  const { deps, stream } = makeDeps();
+  const res = await handleAnswer(post('/api/answer', { ...answerBody, corpus: 'v/corpus.00000000.json', chunkIds: [99] }), deps);
+  expect(res.status).toBe(409);
+  expect((await errorOf(res)).code).toBe('stale_corpus');
+  expect(stream).not.toHaveBeenCalled();
+});
+
 test('foreign origins get 403 when ALLOWED_ORIGINS is set (Review Focus #5)', async () => {
   const { deps, stream } = makeDeps({ allowedOrigins: ['https://a.app'] });
   const res = await handleAnswer(post('/api/answer', answerBody, { origin: 'https://evil.app' }), deps);
@@ -113,24 +124,66 @@ test('a missing key gives 503 and the visitor cap gives 429', async () => {
   expect((await errorOf(capped)).code).toBe('visitor_cap');
 });
 
+const dailyQuota = () => new GeminiError(429, 'quota', 'Resource exhausted', 81_478_000, 'GenerateRequestsPerDayPerProjectPerModel-FreeTier');
+const minuteQuota = () => new GeminiError(429, 'quota', 'Resource exhausted', 31_400, 'GenerateContentInputTokensPerModelPerMinute-FreeTier');
+
 describe('streaming answers (Review Focus #3)', () => {
-  test('a quota error before the first token is a JSON 429', async () => {
+  test('a daily quota error before the first token is a JSON 429 upstream_quota', async () => {
     const { deps } = makeDeps({}, async function* () {
-      throw new GeminiError(429, 'quota', 'Resource exhausted');
+      throw dailyQuota();
     });
     const res = await handleAnswer(post('/api/answer', answerBody), deps);
     expect(res.status).toBe(429);
     expect((await errorOf(res)).code).toBe('upstream_quota');
   });
 
+  test('a per-minute (or unidentified) quota error is upstream_busy with Retry-After, not a used-up day', async () => {
+    const { deps } = makeDeps({}, async function* () {
+      throw minuteQuota();
+    });
+    const res = await handleAnswer(post('/api/answer', answerBody), deps);
+    expect(res.status).toBe(429);
+    expect(res.headers.get('retry-after')).toBe('32');
+    expect((await errorOf(res)).code).toBe('upstream_busy');
+
+    const unknown = makeDeps({}, async function* () {
+      throw new GeminiError(429, 'quota', 'Resource exhausted');
+    });
+    const res2 = await handleAnswer(post('/api/answer', answerBody), unknown.deps);
+    expect((await errorOf(res2)).code).toBe('upstream_busy');
+    expect(res2.headers.get('retry-after')).toBe('30');
+
+    const embedDeps = makeDeps().deps;
+    embedDeps.embed = async () => { throw minuteQuota(); };
+    const embedRes = await handleEmbed(post('/api/embed', { text: 'q' }), embedDeps);
+    expect(embedRes.status).toBe(429);
+    expect((await errorOf(embedRes)).code).toBe('upstream_busy');
+  });
+
+  test('a per-minute quota error after tokens becomes an SSE upstream_busy event', async () => {
+    const { deps } = makeDeps({}, async function* () {
+      yield 'A';
+      throw minuteQuota();
+    });
+    expect(await (await handleAnswer(post('/api/answer', answerBody), deps)).text())
+      .toBe('data: {"type":"delta","text":"A"}\n\ndata: {"type":"error","code":"upstream_busy"}\n\n');
+  });
+
   test('an error after tokens becomes an SSE error event', async () => {
     const { deps } = makeDeps({}, async function* () {
       yield 'A';
-      throw new GeminiError(429, 'quota', 'Resource exhausted');
+      throw dailyQuota();
     });
     const res = await handleAnswer(post('/api/answer', answerBody), deps);
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('data: {"type":"delta","text":"A"}\n\ndata: {"type":"error","code":"upstream_quota"}\n\n');
+  });
+
+  test('a stream that produces no text is an upstream error, not an empty answer', async () => {
+    const { deps } = makeDeps({}, async function* () {});
+    const res = await handleAnswer(post('/api/answer', answerBody), deps);
+    expect(res.status).toBe(502);
+    expect((await errorOf(res)).code).toBe('upstream_error');
   });
 
   test('success streams deltas then done, with passages numbered in request order', async () => {

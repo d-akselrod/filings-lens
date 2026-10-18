@@ -2,8 +2,8 @@
 import { createServer } from 'node:http';
 import { Readable } from 'node:stream';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import { getDeps } from '../server/deps';
-import { handleAnswer, handleEmbed, handleStatus } from '../server/handlers';
+import { getDeps } from '../server/deps.js';
+import { handleAnswer, handleEmbed, handleStatus } from '../server/handlers.js';
 
 try {
   process.loadEnvFile('.env.local');

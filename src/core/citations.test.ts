@@ -4,6 +4,7 @@ import { checkSentence, extractCitations, extractNumbers, splitSentences } from 
 const P = new Map([
   [1, 'Total net sales | $60,922 | $26,974\nOperating loss | (1,234)'],
   [2, 'gross margin of 12.5 %'],
+  [3, 'Mac | $29,984 | (27)% |\niPhone | $201,183 | (2)% |'],
 ]);
 
 test.each([
@@ -16,6 +17,11 @@ test.each([
   ['Item 1A lists the main risks [1].', []],
   ['The 10-K reports net sales of $60,922 million [1].', []],
   ['Margin reached 12,500 percent [2].', ['12,500 percent']],
+  ['Mac net sales decreased 27% [3].', []],
+  ['iPhone net sales decreased 2% [3].', []],
+  ['Mac net sales fell 27 percent [3].', []],
+  ['Mac net sales changed -27% [3].', []],
+  ['Mac net sales decreased 31% [3].', ['31%']],
 ])('%s', (s, unsupported) => expect(checkSentence(s, P).unsupportedNumbers).toEqual(unsupported));
 
 test('citations', () => {

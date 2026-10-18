@@ -1,9 +1,13 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { PromptPassage } from '../src/core/prompt';
-import type { CorpusFile, Manifest } from '../src/core/types';
+import type { PromptPassage } from '../src/core/prompt.js';
+import type { CorpusFile, Manifest } from '../src/core/types.js';
 
-export interface CorpusLookup { get(id: number): Omit<PromptPassage, 'n'> | undefined }
+export interface CorpusLookup {
+  /** The manifest's corpus file name; chunk ids only mean something within one version. */
+  version: string;
+  get(id: number): Omit<PromptPassage, 'n'> | undefined;
+}
 
 /** The function builds prompts from its own copy of the corpus, so clients can only send chunk ids. */
 export async function loadCorpusLookup(rootDir: string): Promise<CorpusLookup> {
@@ -16,5 +20,5 @@ export async function loadCorpusLookup(rootDir: string): Promise<CorpusLookup> {
     const filing = filings.get(c.filingId)!;
     return [c.id, { ticker: filing.ticker, fiscalYear: filing.fiscalYear, item: c.item, itemTitle: c.itemTitle, text: c.text }];
   }));
-  return { get: id => passages.get(id) };
+  return { version: manifest.corpus.file, get: id => passages.get(id) };
 }

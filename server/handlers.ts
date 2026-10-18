@@ -1,13 +1,13 @@
-import { ANSWER_MODELS, GeminiError, queryText, type ModelChoice, type StreamRequest } from '../src/core/gemini';
-import { buildUserPrompt, MAX_PASSAGES, MAX_QUESTION_CHARS, SYSTEM_INSTRUCTION, type PromptPassage } from '../src/core/prompt';
-import { isRestrictedCountry } from '../src/core/region';
-import { encodeVectorB64 } from '../src/core/scorecard';
-import type { CorpusLookup } from './corpus';
-import type { ServerEnv } from './env';
-import { checkLimits, visitorId, type CounterStore, type LimitKind } from './limits';
+import { ANSWER_MODELS, GeminiError, queryText, type ModelChoice, type StreamRequest } from '../src/core/gemini.js';
+import { buildUserPrompt, MAX_PASSAGES, MAX_QUESTION_CHARS, SYSTEM_INSTRUCTION, type PromptPassage } from '../src/core/prompt.js';
+import { isRestrictedCountry } from '../src/core/region.js';
+import { encodeVectorB64 } from '../src/core/scorecard.js';
+import type { CorpusLookup } from './corpus.js';
+import type { ServerEnv } from './env.js';
+import { checkLimits, visitorId, type CounterStore, type LimitKind } from './limits.js';
 
 export type ApiErrorCode = 'bad_request' | 'method' | 'origin' | 'restricted_region' | 'missing_key'
-  | 'visitor_cap' | 'global_budget' | 'upstream_quota' | 'upstream_error';
+  | 'visitor_cap' | 'global_budget' | 'upstream_quota' | 'upstream_busy' | 'upstream_error' | 'stale_corpus';
 
 export interface Deps {
   env: ServerEnv;
@@ -18,16 +18,26 @@ export interface Deps {
   stream: (apiKey: string, r: StreamRequest) => AsyncIterable<string>;
 }
 
-const json = (status: number, body: unknown) => new Response(JSON.stringify(body), {
-  status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
+const json = (status: number, body: unknown, headers: Record<string, string> = {}) => new Response(JSON.stringify(body), {
+  status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...headers },
 });
-const fail = (status: number, code: ApiErrorCode, message: string) => json(status, { error: { code, message } });
+const fail = (status: number, code: ApiErrorCode, message: string, headers?: Record<string, string>) =>
+  json(status, { error: { code, message } }, headers);
 
 const countryOf = (req: Request) => req.headers.get('x-vercel-ip-country');
 const ipOf = (req: Request) => req.headers.get('x-real-ip') ?? req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
 
+/** A daily cap ends the built-in key's day; per-minute caps (requests or tokens) clear within about a minute. */
+function quotaCode(e: GeminiError): 'upstream_quota' | 'upstream_busy' {
+  return /PerDay/i.test(e.quotaId ?? '') || (e.retryAfterMs ?? 0) > 3_600_000 ? 'upstream_quota' : 'upstream_busy';
+}
+
 function upstreamFailure(e: unknown): Response {
-  if (e instanceof GeminiError && e.reason === 'quota') return fail(429, 'upstream_quota', "Today's free Gemini quota is used up");
+  if (e instanceof GeminiError && e.reason === 'quota') {
+    if (quotaCode(e) === 'upstream_quota') return fail(429, 'upstream_quota', "Today's free Gemini quota is used up");
+    const seconds = Math.max(1, Math.ceil((e.retryAfterMs ?? 30_000) / 1000));
+    return fail(429, 'upstream_busy', "Google's free tier is busy; try again shortly", { 'retry-after': String(seconds) });
+  }
   return fail(502, 'upstream_error', "Google's API returned an error");
 }
 
@@ -41,8 +51,8 @@ export async function handleStatus(req: Request, d: Deps): Promise<Response> {
 }
 
 /** Method, origin, region, key, body validation and daily limits — in that order — before any call to Google. */
-/** `validate` returns the parsed body, or an error message string. */
-async function guard<T extends object>(req: Request, d: Deps, kind: LimitKind, validate: (body: unknown) => Promise<T | string>):
+/** `validate` returns the parsed body, an error message string (400), or a finished error response. */
+async function guard<T extends object>(req: Request, d: Deps, kind: LimitKind, validate: (body: unknown) => Promise<T | string | Response>):
   Promise<Response | { body: T; key: string }> {
   if (req.method !== 'POST') return fail(405, 'method', 'Use POST');
   if (d.env.allowedOrigins.length > 0 && !d.env.allowedOrigins.includes(req.headers.get('origin') ?? '')) {
@@ -58,6 +68,7 @@ async function guard<T extends object>(req: Request, d: Deps, kind: LimitKind, v
   }
   const body = await validate(raw);
   if (typeof body === 'string') return fail(400, 'bad_request', body);
+  if (body instanceof Response) return body;
   const now = d.now();
   const visitor = await visitorId(ipOf(req), d.env.ipSalt, now.toISOString().slice(0, 10));
   const limited = await checkLimits(d.store, visitor, kind, d.env.limits, now);
@@ -85,8 +96,8 @@ export async function handleEmbed(req: Request, d: Deps): Promise<Response> {
 interface AnswerRequest { question: string; passages: PromptPassage[]; model: ModelChoice; previousQuestion?: string }
 
 export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
-  const g = await guard(req, d, 'answer', async (raw): Promise<AnswerRequest | string> => {
-    const b = (raw ?? {}) as { question?: unknown; chunkIds?: unknown; model?: unknown; previousQuestion?: unknown };
+  const g = await guard(req, d, 'answer', async (raw): Promise<AnswerRequest | string | Response> => {
+    const b = (raw ?? {}) as { question?: unknown; chunkIds?: unknown; model?: unknown; previousQuestion?: unknown; corpus?: unknown };
     if (!isQuestion(b.question)) return `question must be 1–${MAX_QUESTION_CHARS} characters`;
     if (b.previousQuestion !== undefined && (typeof b.previousQuestion !== 'string' || b.previousQuestion.length > MAX_QUESTION_CHARS)) {
       return `previousQuestion must be at most ${MAX_QUESTION_CHARS} characters`;
@@ -96,7 +107,10 @@ export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
     if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_PASSAGES || !ids.every(Number.isInteger) || new Set(ids).size !== ids.length) {
       return `chunkIds must be 1–${MAX_PASSAGES} unique integers`;
     }
+    if (typeof b.corpus !== 'string' || !b.corpus) return 'corpus must name the data version the chunk ids come from';
     const corpus = await d.corpus();
+    // A tab opened before a data redeploy would otherwise get answers built from passages it isn't showing.
+    if (b.corpus !== corpus.version) return fail(409, 'stale_corpus', 'The filings data was updated; reload the page');
     const passages: PromptPassage[] = [];
     for (const [i, id] of (ids as number[]).entries()) {
       const passage = corpus.get(id);
@@ -119,15 +133,16 @@ export async function handleAnswer(req: Request, d: Deps): Promise<Response> {
   } catch (e) {
     return upstreamFailure(e);
   }
+  if (first.done) return fail(502, 'upstream_error', "Google's API returned an empty answer");
   const encoder = new TextEncoder();
   const event = (payload: unknown) => encoder.encode(`data: ${JSON.stringify(payload)}\n\n`);
   const body = new ReadableStream<Uint8Array>({
     async start(controller) {
       try {
-        for (let r = first; !r.done; r = await iterator.next()) controller.enqueue(event({ type: 'delta', text: r.value }));
+        for (let r: IteratorResult<string> = first; !r.done; r = await iterator.next()) controller.enqueue(event({ type: 'delta', text: r.value }));
         controller.enqueue(event({ type: 'done' }));
       } catch (e) {
-        const code: ApiErrorCode = e instanceof GeminiError && e.reason === 'quota' ? 'upstream_quota' : 'upstream_error';
+        const code: ApiErrorCode = e instanceof GeminiError && e.reason === 'quota' ? quotaCode(e) : 'upstream_error';
         controller.enqueue(event({ type: 'error', code }));
       }
       controller.close();

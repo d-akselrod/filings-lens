@@ -1,4 +1,4 @@
-import type { LimitConfig } from './limits';
+import type { LimitConfig } from './limits.js';
 
 export interface ServerEnv {
   geminiKey: string | null;
